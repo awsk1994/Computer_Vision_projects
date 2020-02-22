@@ -1,0 +1,118 @@
+<html>
+<head>
+<title> CS585 Homework Template: HW[x] Student Name [xxx]  </title>
+<style>
+<!--
+body{
+font-family: 'Trebuchet MS', Verdana;
+}
+p{
+font-family: 'Trebuchet MS', Times;
+margin: 10px 10px 15px 20px;
+}
+h3{
+margin: 5px;
+}
+h2{
+margin: 10px;
+}
+h1{
+margin: 10px 0px 0px 20px;
+}
+div.main-body{
+align:center;
+margin: 30px;
+}
+hr{
+margin:20px 0px 20px 0px;
+}
+.img-face{
+width:100%
+}
+-->
+</style>
+</head>
+
+<body>
+<center>
+<a href="http://www.bu.edu"><img border="0" src="http://www.cs.bu.edu/fac/betke/images/bu-logo.gif"
+width="119" height="120"></a>
+</center>
+
+<h1>Assignment 1</h1>
+<p> 
+ CS 585 HW 1 <br>
+ Alex Wong <br>
+    Jan 29, 2020
+</p>
+
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<ol>
+        <li>Take image of your face as input.</li>
+        <li>Create grayscale image of your face.</li>
+        <li>Flip your image horizontally.</li>
+        <li>Manipulate your face in some way (eg. blur)</li>
+</ol>
+<p>
+This task is useful to learn to use opencv.
+</p>
+
+
+<hr>
+<h2> Method and Implementation </h2>
+<p>
+The first step is to perform grayscale. This can be done by taking an average of all the 3 color channels (R, G, B) on a pixel-wise level.
+</p>
+<p>
+The second step is to flip the image, from left to right. This is done by creating an empty matrix with same size as our original image. Then, copying each columns of pixel from right to left, and pasting it into our empty matrix from left to right.
+</p>
+<p>
+The third step is to apply blur to the image. First, the program loops through all the pixel and perform a convolution. Specifically, it uses a 7x7 average convolution.
+</p>
+
+<hr>
+<h2>Experiments</h2>
+<p>This task was very straight forward and no repeated tests was needed.</p>
+<p>For the blur effect, I set the width and height to 7 because the blur was not obvious with lower numbers.</p>
+
+<hr>
+<h2> Results</h2>
+<table>
+	<tr>
+		<th>Original</th>
+		<th>GrayScale</th>
+		<th>Horizontal Flip</th>
+		<th>Blur</th>
+	</tr>
+	<tr>
+		<td><img src="./img/photo.jpg" class="img-face"/></td>
+		<td><img src="./img/grayscale.jpg" class="img-face"/></td>
+        <td><img src="./img/horiz_img.jpg" class="img-face"/></td>
+        <td><img src="./img/blur_img.jpg" class="img-face"/></td>
+	</tr>
+</table>
+
+<hr>
+<h2> Discussion </h2>
+<p>
+Future work can include more complicated data augmentation, such as adding Gaussian Noise, Removing the background and replacing it with another image and different color adjustments.
+</p>
+
+<hr>
+<h2> Conclusions </h2>
+<p>This was a good task to familarize with openCV library and some basic image processing concepts. I can see this as a useful tool for future data augmentation and image manipulation tasks.</p>
+
+<hr>
+<h2> Credits and Bibliography </h2>
+<p>N/A</p>
+
+<hr>
+</div>
+</body>
+
+
+
+</html>
+
