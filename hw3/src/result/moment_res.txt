@@ -1,0 +1,39 @@
+open_full_moment
+area : 41501
+perimeter : 1342
+ratio_area_perim : 30.924739195231
+compactness : 43.395677212597285
+orientation : -23.344837298139755
+circularity : 0.4898434067181641
+
+open_partial_moment
+area : 25359
+perimeter : 1590
+ratio_area_perim : 15.949056603773585
+compactness : 99.69241689341062
+orientation : -34.993641434875165
+circularity : 0.4693140536271388
+
+open_fist_moment_1
+area : 38170
+perimeter : 1983
+ratio_area_perim : 19.24861321230459
+compactness : 103.0204086979303
+orientation : -9.735179332468077
+circularity : 0.44345835628731833
+
+open_fist_moment_2
+area : 30347
+perimeter : 722
+ratio_area_perim : 42.03185595567867
+compactness : 17.177447523643195
+orientation : 23.520276943926824
+circularity : 0.4238646331732984
+
+tumor_moment
+area : 55133
+perimeter : 2267
+ratio_area_perim : 24.319805910895457
+compactness : 93.21620445105472
+orientation : 31.176295776268994
+circularity : 0.012090927517832417

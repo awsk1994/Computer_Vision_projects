@@ -1,9 +1,10 @@
 options = {
     'img_dir': './img/p1',
     'output_dir': './result',
-    'write_output': True,
+    'write_output': False,
     'show_res': False,
     'show_moment_res': True,
+    'moment_debug': False,
     'debug': False,
     'show_which_step': True
 }
@@ -111,11 +112,11 @@ def main():
 	if options['show_which_step']:
 		print("4. Calculating Moment")
 
-	open_full_moment = calc_moment_numbers(open_full_cc,open_full_colors[0], open_full_boundary_img, debug=options['debug'])
-	open_partial_moment = calc_moment_numbers(open_partial_cc,open_partial_colors[0], open_partial_boundary_img, debug=options['debug'])
-	open_fist_moment_1 = calc_moment_numbers(open_fist_cc,open_fist_colors[0], open_fist_boundary_img_1, debug=options['debug'])
-	open_fist_moment_2 = calc_moment_numbers(open_fist_cc,open_fist_colors[1], open_fist_boundary_img_2, debug=options['debug'])
-	tumor_moment = calc_moment_numbers(tumor_cc,tumor_colors[0], tumor_boundary_img, debug=options['debug'])
+	open_full_moment = calc_moment_numbers(open_full_cc,open_full_colors[0], open_full_boundary_img, debug=options['moment_debug'])
+	open_partial_moment = calc_moment_numbers(open_partial_cc,open_partial_colors[0], open_partial_boundary_img, debug=options['moment_debug'])
+	open_fist_moment_1 = calc_moment_numbers(open_fist_cc,open_fist_colors[0], open_fist_boundary_img_1, debug=options['moment_debug'])
+	open_fist_moment_2 = calc_moment_numbers(open_fist_cc,open_fist_colors[1], open_fist_boundary_img_2, debug=options['moment_debug'])
+	tumor_moment = calc_moment_numbers(tumor_cc,tumor_colors[0], tumor_boundary_img, debug=options['moment_debug'])
 
 	if options['show_moment_res']:
 	    print("open_full_moment")
@@ -151,7 +152,7 @@ def main():
 	    plt.show()
 	    plt.imshow(tumor_skeleton)
 	    plt.show()
-	    
+
 	if options['write_output']:
 	    cv2.imwrite(options['output_dir'] + '/open_full_skeleton.png', open_full_skeleton)
 	    cv2.imwrite(options['output_dir'] + '/open_partial_skeleton.png', open_partial_skeleton)

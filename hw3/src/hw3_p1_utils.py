@@ -379,8 +379,12 @@ def calc_second_moment(img, obj_color,x_bar, y_bar):
     E_min = (a+c)/2 - pow((a-c),2)/(2*h) - pow(b,2)/(2*h) if h>0 else (a+c)/2
     E_max = (a+c)/2 + pow((a-c),2)/(2*h) + pow(b,2)/(2*h) if h>0 else (a+c)/2
     circularity = E_min/E_max if (E_min > 0 and E_max > 0) else 0
-    orientation = 0.5 * np.arctan((2*b)/(a+c)) if (a+c) > 0 else 0
-        
+
+    # orientation = 0.5 * np.arctan((2*b)/(a+c)) if (a+c) > 0 else 0
+    arctan_num = (2 * (b - x_bar * y_bar))
+    arctan_denum = ((a - pow(x_bar, 2)) - (c - pow(y_bar, 2)))
+    orientation = np.rad2deg(0.5 * np.arctan(arctan_num/arctan_denum))
+
     return a,b,c,h,E_min,E_max,circularity,orientation
 
 # In: x,y + rgb channel image
@@ -393,6 +397,7 @@ def calc_moment_numbers(img, obj_color, boundary_img, debug=False):
 
     if debug:
         print("a={},b={},c={},h={},E_min={},E_max={}".format(a,b,c,h,E_min,E_max))
+        print("x_bar={}, y_bar={}".format(x_bar, y_bar))
         print("Circularity={},orientation={}".format(circularity,orientation))
         print("Compactness={}, Ratio(area,perim)={}".format(compactness, ratio_area_perim))
     
