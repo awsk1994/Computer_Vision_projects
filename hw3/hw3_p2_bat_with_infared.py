@@ -4,6 +4,7 @@ import re
 
 import cv2
 import numpy as np
+from PIL import Image
 
 cv2.namedWindow("Orig_video")
 
@@ -12,8 +13,11 @@ SCALE_FACTOR = 2
 FPS = 20
 DEBUG = False
 
+def nothing(x):
+    pass
+
 def get_frame_id(fn):
-    return int(re.sub(r".*?frame_(\d+)\.jpg", "\\1", fn))
+    return int(re.sub(r".*?frame(\d+)\.ppm", "\\1", fn))
 
 def get_next_new_color(usedColors):
     newColor = (np.random.choice(range(256), size=3))
@@ -21,7 +25,7 @@ def get_next_new_color(usedColors):
         newColor = (np.random.choice(range(256), size=3))
     return newColor
 
-def get_average_video_frame(video_dir):
+def get_average_video_frame(video_dir, false_color=False):
 
     frames = []
     for _, _, file_list in os.walk(video_dir):
@@ -31,6 +35,8 @@ def get_average_video_frame(video_dir):
             frame = cv2.imread("%s/%s" % (video_dir, fn), cv2.IMREAD_COLOR)
             new_shape = (frame.shape[1]//SCALE_FACTOR, frame.shape[0]//SCALE_FACTOR)
             frame = cv2.resize(frame, new_shape)
+            if false_color:
+                frame = np.array(Image.fromarray(frame).convert('L'))
             frames.append(frame)
         print("shape", np.array(frames).shape)
         avg_frame = np.average(np.array(frames).astype(np.uint32), axis=0).astype(np.uint8)
@@ -109,82 +115,42 @@ def get_label_map(frame_th, num_labels, labels, stats, centroids):
 
 if __name__ == "__main__":
 
-
-    template_names = [
-        "src/img/p2/pedes_template1.png",
-        "src/img/p2/pedes_template2.png",
-        "src/img/p2/pedes_template3.png",
-        # "src/img/p2/pedes_template2.png"
-    ]
-    templates = []
-
-    avg_frame = get_average_video_frame("./CS585-PeopleImages/")
+    avg_frame = get_average_video_frame("./CS585-BatImages/FalseColor/", false_color=True)
+    # avg_false_color_frame = get_average_false_color_frame("./CS585-BatImages/FalseColor/")
     # if DEBUG:
-    #     cv2.imshow("AvgFrame", avg_frame)
-    print(avg_frame.shape)
-    prev_frame = np.zeros((avg_frame.shape[0], avg_frame.shape[1], 3), np.uint8)
+    cv2.imshow("AvgFrame", avg_frame)
+    cv2.waitKey(0)
+    for frame_id, frame in video_frame_iterator("./CS585-BatImages/FalseColor/", DEBUG):
 
-    for i, fn in enumerate(template_names):
-        template = cv2.imread(fn, 0)
-        # template = cv2.resize(template, (50, int(template.shape[0]/template.shape[1]*50)))
-        _, template = cv2.threshold(template, 1, 255, cv2.THRESH_BINARY)
-        templates.append(template)
-    # cv2.imshow("Template1", templates[0])
-    # cv2.imshow("Template2", templates[1])
-    # cv2.waitKey(0)
-    for frame_id, frame in video_frame_iterator("./CS585-PeopleImages/", DEBUG):
 
+        frame_lum = np.array(Image.fromarray(frame).convert('L'))
+        
         # Remove background bias
-        frame_diff = cv2.absdiff(frame, avg_frame)
-        motion_diff = cv2.absdiff(frame_diff, prev_frame)
-        # Currently only diff previous frame
-        prev_frame = frame_diff # TODO: track multiple previous frames (window of frames)
-        bi_modal_diff = cv2.bitwise_or(frame_diff, motion_diff)
-        frame_diff = cv2.cvtColor(bi_modal_diff, cv2.COLOR_BGR2GRAY)
+        frame_diff = cv2.absdiff(frame_lum, avg_frame)
 
-        # Thresholding
-        _, frame_th = cv2.threshold(frame_diff, 40, 255, cv2.THRESH_BINARY)
-        frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
-        _, frame_th = cv2.threshold(frame_blur, 80, 255, cv2.THRESH_BINARY)
+        # frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
+        
+        # # Thresholding
+        # _, frame_th = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
+        # frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
+        # _, frame_th = cv2.threshold(frame_blur, 50, 255, cv2.THRESH_BINARY)
         
         # # Flood filling
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
+        # num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
 
-        person_cnt = 0
-        for stat in stats[1:]:
-            x, y, w, h = stat[:4]
-            ratio = h/w
-            if ratio < 0.9 or stat[4] < 50.:
-                continue
+        # for stat in stats[1:]:
+        #     x, y, w, h = stat[:4]
+        #     circularity = stat[4] / (w*h) #(((x**2+y**2)**0.5/2)**2*np.pi)
+        #     if circularity < 0.5:
+        #         color = (0, 255, 0)
+        #     else:
+        #         color = (0, 0, 255)
+        #     cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
+        #     cv2.putText(frame, "%.3f" % (circularity), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
 
-            max_match_score = 0.0
-            for i, t in enumerate(templates):
-                t_resize = cv2.resize(t, (w, h))
-                
-                obj_region = frame_th[y:y+h, x: x+w]
+        # cv2.imshow("diff_video", frame_th)
+        cv2.imshow("Orig_video", frame_diff)
+        cv2.imshow("Lum_video", frame_lum)
 
-                res = cv2.matchTemplate(obj_region, t_resize, cv2.TM_CCOEFF_NORMED)
-                res_flip = cv2.matchTemplate(obj_region, t_resize[:, ::-1], cv2.TM_CCOEFF_NORMED)
-
-                match_score = max(res.max(), res_flip.max())
-                if match_score > max_match_score:
-                    max_match_idx = i
-                    max_match_score = match_score
-            
-            # if max_match_score >= 0.5 and <= x <= and <= y <= :
-            person_cnt += 1
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)
-            cv2.putText(frame, "%i %i" % (x, y), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=(255, 0, 0)) 
-
-        cv2.putText(frame, "Detected %i person" % (person_cnt), (30, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color=(0, 255, 0)) 
-        # TODO: match each bounding box with pedestrian template
-        #  thresholding the confidence and render person_cnt on frame
-
-        cv2.imshow("Orig_video", frame)
-        # cv2.imshow("Diff_video", frame_diff)
-        # cv2.imshow("diff_video", frame_diff)
-        cv2.imshow("bi-modal_diff_video", frame_th)
-
-        # cv2.waitKey(0)
         if cv2.waitKey(25) & 0xFF == ord('q'):
-            exit()
+            exit(0)

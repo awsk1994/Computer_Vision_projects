@@ -5,11 +5,13 @@ import re
 import cv2
 import numpy as np
 
+from src.hw3_p1_utils import *
+
 cv2.namedWindow("Orig_video")
 
 # Constants
 SCALE_FACTOR = 2
-FPS = 20
+FPS = 3
 DEBUG = False
 
 def nothing(x):
@@ -133,15 +135,18 @@ if __name__ == "__main__":
         for stat in stats[1:]:
             x, y, w, h = stat[:4]
             circularity = stat[4] / (w*h) #(((x**2+y**2)**0.5/2)**2*np.pi)
-            if circularity < 0.5:
+            aspect_ratio = max(w, h) / min(w, h)
+            if stat[4] < 10.:
+                continue
+            if aspect_ratio > 2.0 or circularity > 0.7:
                 color = (0, 255, 0)
             else:
                 color = (0, 0, 255)
             cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
-            cv2.putText(frame, "%.3f" % (circularity), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
+            cv2.putText(frame, "%.3f" % (aspect_ratio), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
 
         cv2.imshow("diff_video", frame_th)
         cv2.imshow("Orig_video", frame)
 
-        if cv2.waitKey(25) & 0xFF == ord('q'):
+        if cv2.waitKey(5) & 0xFF == ord('q'):
             exit(0)

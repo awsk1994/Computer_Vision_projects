@@ -10,7 +10,7 @@ cv2.namedWindow("Orig_video")
 # Constants
 SCALE_FACTOR = 4
 FPS = 20
-DEBUG = True
+DEBUG = False
 
 def nothing(x):
     pass
@@ -157,6 +157,8 @@ if __name__ == "__main__":
 
         # skin detection
         frame_gs = skin_masking(frame_roi, DEBUG)
+
+        cv2.imshow("skin", frame_gs)
 
         # Morphology
         frame_blur = cv2.GaussianBlur(frame_gs, (3, 3), 0)
