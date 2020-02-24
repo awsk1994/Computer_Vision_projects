@@ -10,6 +10,9 @@ p{
 font-family: 'Trebuchet MS', Times;
 margin: 10px 10px 15px 20px;
 }
+h4{
+    margin: 15px;
+}
 h3{
 margin: 10px;
 }
@@ -73,202 +76,165 @@ width:100%
 width="119" height="120"></a>
 </center>
 
-<h1>Assignment 2</h1>
+<h1>Assignment 3</h1>
 <p> 
-CS 585 HW 2<br>
+CS 585 HW 3<br>
 Alex Wong and Wei-Hsiang Lin<br>
-Feb 12, 2020
+Feb 23, 2020
 </p>
 
+<h1>Part 1</h1>
 <div class="main-body">
 <hr>
 <h2> Problem Definition </h2>
-<ol>
-        <li>Design and Implement algorithm to detect hand gestures and Apply it to graphical display that reacts to the hand gestures</li>
-        <li>Must use skin-detection.</li>
-        <li>Algorithm must detect 4 different hand gestures.</li>
-        <li>Create confusion matrix for the algorithm.</li>
-</ol>
+<p>For Part 1, we are given binary images of hands and a stained tissue sample of a breast cancer tumor. We need to label the connected components, apply boundary following algorithm, compute image moment metrics and apply skeleton finding algorithm.</p>
+<p>This is very important in the area of computer vision, because it lays as foundations for more complicated object segmentation problems.</p>
+<hr>
+<h2> Method and Implementation </h2>
+<h3>Connected Components</h3>
+<h4>Pre-Process Image</h4>
+<p>The first step is to <b>preprocess the image</b> using a variation of dilation, erosion, opening, closing, gaussian blur and thresholding. Depending on the situation, the operations vary slightly.</p>
+<p>We usually use dilation to expand the image of focus; eg. filling a hole or merging lines together</p>
+<p>We usually use erosion to do the opposite; break away small parts.</p>
+<p>The combination of erosion and dilation, depending on which goes first, is known as 'opening' and 'closing'. Closing helps to remove small blobs and Opening helps to fill in holes.</p>
+<p>Blur and Thresholding are additional operations used to remove unwanted pixels.</p>
 
-<p>The result of this experiment is very important, because object tracking is a big topic in the area of Computer Vision. In this experimented, we assume that there is consistent background and lighting conditions, as these are required for our project to work (as we are using hsv-thresholding and template matching). Anticipated difficulties include differentiating hand and non-hand class on an image and classifying the correct hand gesture.</p>
+<h4>Flood Fill</h4>
+<p>The next step is to retrieve the connected components. To achieve this, I modified the usual flood fill algorithm to take in multiple colors as it iteratively traverses the image. The result is an image where different connected components have different colors (randomly generated).</p>
+
+<h3>Filter large components</h3>
+<p>Next, we find the biggest n connected components by counting the colors(eg. the most-occuring color denotes the largest connected component). We assume the largest component is the background (this works for the sample images provided), and thus, we don't take in account of the largest component. We take the 2nd to n-th component as our objects of focus.</p>
+
+<h3>Boundary Tracing</h3>
+<p>We find the boundary of our object of focus by using the boundary tracing algorithm. In short, it finds the first black pixel (start of the boundary), and then circles the black pixel clock-wise to find the next black pixel, which becomes the next pixel of our boundary. Eventually, it continues until we end up with the first black pixel we started with. By then, we already have a chain of black pixels, which is the boundary of our object of focus.</p>
+
+<h3>Image Moments</h3>
+<p>The algorithms used to calculate this is as follows:</p>
+<h4>Area and Center of Mass</h4>
+<img style="width: 100%" src="./img/p1/area_center_of_mass.png"/>
+<h4>Second Moment</h4>
+<img style="width: 100%" src="./img/p1/second_moment.png"/>
+<h4>Orientation</h4>
+<img style="width: 100%" src="./img/p1/orientation.png"/>
+
+<h3>Skeleton Finding</h3>
+<p>An overview of this algorithm is that it continuously erodes the original image. At each iteration, we get the difference from previous and stores it (using bitwise_or). The result is a skeletion path of the image of focus</p>
+
+<hr>
+<h2>Results</h2>
+<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+
+
+<h3>Original</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open-bw-full.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open-bw-partial.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist-bw.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor-fold.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Connected Components</h3>
+<table>
+	<tr>
+		<th>Open Hand</th>
+		<th>Open Hand Partial</th>
+		<th>Open Fist</th>
+		<th>Tumor</th>
+	</tr>
+	<tr>
+		<td style="width:25%"><img src="./img/p1/open_full_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_cc.png" class="img-face"/></td>
+	</tr>
+</table>
+
+
+<h3>Boundary Tracing</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open_full_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_boundary_img.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Skeleton Finding</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open_full_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_skeleton.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Image Moments</h3>
+<img style="width:100%" src="./img/p1/moment_numbers.png"/>
+
+<hr>
+<h2> Discussion </h2>
+<!-- TODO -->
+
+<hr>
+<h2> Conclusions </h2>
+<!-- TODO -->
+<hr>
+</div>
+
+<h1>Part 2</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+
+<!-- TODO -->
 
 <hr>
 <h2> Method and Implementation </h2>
 
-<p>
-There are 3 different frames in our program:
-</p>
-<ol>
-    <li><b>Original:</b> Displays exactly what's captured by the webcam. Here, you tune the hsv thresholds (explained later). The recognized/detected gesture is displayed here with a text indicating the classified gesture and the confidence score.</li>
-    <li><b>Filtered:</b> Displays the hsv-threshold filtered frame. This is useful in seeing what the algorithm sees prior to template matching. You should tune HSV thresholds while looking at this. </li>
-    <li><b>Drawing Frame:</b> Once HSV threshold is setup, you can use hand gestures to draw and download your artwork into the 'download_frame' folder.</li>
-</ol>
-<p>
-From the user perspective, the first step is to tune the HSV threshold so it recognizes your hand only. To help, the user can click on a pixel in the video frame and see the hsv value. This helps to figure out the best hsv threshold.
-</p>
+<!-- TODO -->
 
-<p>
-Once the threshold is fine-tuned, the user should move their hand around (for each gestures) to make sure. The reason is that the HSV threshold is sensitive to lighting conditions and backgrounds. Therefore, even if the detection works on one position, it might not work when your move hands to another place.
-</p>
-<p>
-The third step is start drawing. Each gesture corresponds to a different function in the drawing. The functions are listed below:
-</p>
-<ol>
-    <li><b>Paper:</b> All fingers open. This will clear the drawing frame </li>
-    <li><b>Pointer:</b> Only 1 finger sticks out. This allows you to start drawing with your finger (on the drawing frame).</li>
-    <li><b>Rock:</b> All fingers enclosed. This does nothing. It acts as a neutral gesture to allow you to move around the image/frame without drawing anything on the frame. Should be used in combination with 'pointer' to draw better images.</li>
-    <li><b>Seven:</b> Thumb and pointer sticks out. This will download the image to the 'download_frame' folder.</li>
-</ol>
-<p>Note that, there are checks put in place for the paper and seven gesture to be triggered only when it is detected 20 frames in a row.</p>
 <hr>
 <h2>Experiments</h2>
 <h3>Environmental Factors</h3>
-<p>We experimented with many different backgrounds and lighting conditions. We found that the algorithm works best with backgrounds and lighting conditions that are more consistent in color and brightness.</p>
+<!-- TODO -->
 <h3>Algorithms</h3>
-<p>Additionally, we attempted different methods to perform hsv thresholding and image processing. After experimenting different combinations, we decided that the hsv values for thresholding should be done manually because the lighting conditions, skin color and backgrounds will vary almost every time. As for image processing, after the frame is filtered via hsv-thresholding, we perform a combination of basic image processing techniques. These include gaussian blur, binary thresholding, dilation and erosion. Additionally, we perform 'object proposal'. This is partially inspired by how CNN works. The idea is to use contours to figure out the biggest blob and only focus in on that blob. After that, we draw a bounding box around that blob and perform template matching. Since the left and right is symmetrical (horizontally), we perform template matching on both the blob and the blob when flipped horizontally. To classify the gesture into the 4 possible gestures, we compute a confidence score based on template matching's max/peak values. We select the template with the highest confidence score with the bounding box cropped image and consider this as our region of interest (ROI) or, in simple terms, the gesture recognized.</p>
+<!-- TODO -->
 <h3>Hand Gestures</h3>
-<p>We found that not all gestures work equally. There are some gestures that are very similar, and thus, is more prone to misclassification. There are some gestures that are harder to be detected after hsv-thresolding because the way the gesture is positioned might affect how the skin color is displayed. For example, flipping your hand upside down might change the light refracted from your skin because the angle of your hand from the light is now changed and not accounted when you manually perform the hsv thresholding.</p>
-<p>After experimenting with different gestures, we deicided to go with <b>paper, pointer, rock and seven</b> gestures. due to the consideratiosn mentioned above</p>
+<!-- TODO -->
 <hr>
 <h2>Results</h2>
-<p>The results were good as long as the environmental factors (explained earlier) and hsv threshold values are optimal.</p>
-
-<h3>Examples of Detecting Hand Gestures</h3>
-<table>
-	<tr>
-        <th></th>
-		<th>Paper Gestures</th>
-		<th>Pointer Gestures</th>
-		<th>Rock Gestures</th>
-		<th>Seven Gestures</th>
-	</tr>
-	<tr>
-        <th>Main Frame (Object Detection Bounding Box + HSV Threshold Tuning)</th>
-		<td><img src="./img/screenshot_paper_main.png" class="img-face"/></td>
-		<td><img src="./img/screenshot_pointer_main.png" class="img-face"/></td>
-        <td><img src="./img/screenshot_rock_main.png" class="img-face"/></td>
-        <td><img src="./img/screenshot_seven_main.png" class="img-face"/></td>
-	</tr>
-    <tr>
-        <th>HSV-Thresholded Frame</th>
-        <td><img src="./img/screenshot_paper_gs.png" class="img-face"/></td>
-        <td><img src="./img/screenshot_pointer_gs.png" class="img-face"/></td>
-        <td><img src="./img/screenshot_rock_gs.png" class="img-face"/></td>
-        <td><img src="./img/screenshot_seven_gs.png" class="img-face"/></td>
-    </tr>
-</table>
-
-<h3>Fail Example</h3>
-<p>As I explained earlier, sometimes, the detection doesn't work as intended. Below is an example:</p>
-<table>
-    <tr>
-        <th>Main Frame (Object Detection Bounding Box + HSV Threshold Tuning)</th>
-        <td><img src="./img/screenshot_fail_main.png" class="img-face"/></td>
-    </tr>
-    <tr>
-        <th>HSV-Thresholded Frame</th>
-        <td><img src="./img/screenshot_fail_gs.png" class="img-face"/></td>
-    </tr>
-</table>
-<p>In the image above, the template matching of the hand failed because there is a disconnect between the pointer finger and the palm. This led the algorithm to think that it is a rock gesture. The reason this happened is because the HSV thresholding was too strong. However, at the same time, if it not strong enough, then environmental noise would not be filtered. Eventually, the cause of the problem becomes a deadlock. In short, the algorithm still have many weaknesses and suggestions for improvements will be discussed later (in the 'Discussion' section.</p>
-
-<h3>Example of Drawing</h3>
-<img src="./img/draw_frame_example.png" class="img-face"/>
-
-<h3>Confusion Matrix</h3>
-<p>To demonstrate our performance metrics, we plotted a confusion matrix. Note that this follows that assumption that environmental factors (explained above) is optimal and that the hsv threshold values are tuned optimally.</p>
-<table class="tg">
-      <tbody><tr>
-        <th class="tg-ted4" colspan="2" rowspan="2">Confusion Matrix</th>
-        <th class="tg-ted4" colspan="4">True Class</th>
-      </tr>
-      <tr>
-        <td class="tg-ted4">Hand</td>
-        <td class="tg-ted4">Rock</td>
-        <td class="tg-ted4">Pointer</td>
-        <td class="tg-ted4">Seven</td>
-      </tr>
-      <tr>
-        <td class="tg-ted4" rowspan="4">Hypothesized<br>Class</td>
-        <td class="tg-ted4">Hand</td>
-        <td class="tg-de2y"><b>18</b></td>
-        <td class="tg-de2y">0</td>
-        <td class="tg-de2y">0</td>
-        <td class="tg-de2y">0</td>
-      </tr>
-      <tr>
-        <td class="tg-ted4">Rock</td>
-        <td class="tg-de2y">0</td>
-        <td class="tg-de2y"><b>15</b></td>
-        <td class="tg-de2y">2</td>
-        <td class="tg-de2y">3</td>
-      </tr>
-      <tr>
-        <td class="tg-ted4">Pointer</td>
-        <td class="tg-de2y">1</td>
-        <td class="tg-de2y">4</td>
-        <td class="tg-de2y"><b>17</b></td>
-        <td class="tg-de2y">1</td>
-      </tr>
-      <tr>
-        <td class="tg-ted4">Seven</td>
-        <td class="tg-de2y">1</td>
-        <td class="tg-de2y">1</td>
-        <td class="tg-de2y">1</td>
-        <td class="tg-de2y"><b>16</b></td>
-      </tr>
-    </tbody>
-</table>
-<p>I think the confusion matrix demonstrates that the accuracy of our end-product has good results (although it can be improved further), as each gesture's max lies in its True Positive.</p>
-<h4>Recall, Precision and Accuracy</h4>
-<table border=1>
-    <tr>
-        <th>Measurements</th>
-        <th>Paper Gesture</th>
-        <th>Pointer Gesture</th>
-        <th>Rock Gesture</th>
-        <th>Seven Gesture</th>
-    </tr>
-    <tr>
-        <th>Recall</th>
-        <td>0.5625</td>
-        <td>0.625</td>
-        <td>0.68</td>
-        <td>0.5926</td>
-    </tr>
-    <tr>
-        <th>Precision</th>
-        <td>1</td>
-        <td>0.75</td>
-        <td>0.739</td>
-        <td>0.842</td>
-    </tr>
-    <tr>
-        <th>Accuracy</th>
-        <td>0.825</td>
-        <td>0.825</td>
-        <td>0.825</td>
-        <td>0.825</td>
-    </tr>
-</table>
-
-
+<!-- TODO -->
 
 <hr>
 <h2> Discussion </h2>
-<p>
-Future work can focus on:
-</p>
-<ol>
-    <li><b>Frame-to-Frame Differencing:</b> This can be very interesting. Because the application is drawing, it implies that the pointer will be moving. If we track the motion, we can filter out the background (since they are not moving) much better. Whether hsv-thresholding is required when this is applied is debatable. More experiments will be required to decide this.</li>
-    <li><b>Background Differencing:</b> If we can take the image of the background and then remove the background from our frame, then we have much less noise to begin with and detecting hand gesture might be easier.</li>
-    <li><b>HSV Thresholding by clicking on ROI:</b> This was almost implemented by didn't make it due to time constraints. We can retrieve the HSV of our ROI by clicking the video and using that, we can figure out the HSV thresholding values, rather than manually tuning it. However, one of the bottlenecks we faced was that, even on a hand, there are many different HSV values. When one finger covers over the palm, a shadow exist and this changes the HSV values greatly. Our suggested solution is allow several different clicks and have a list of HSV thresholds. </li>
-</ol>
+<!-- TODO -->
 <hr>
 <h2> Conclusions </h2>
-<p>This was a good assignment. We were very skeptical whether template matching would work when we started. In our initial experiments, template matching was horrible due to the noise generated from environmental factors. After applying image processing and some form of object proposal, we were able to denoise and achieved significantly better results. I can see how this technique can be researched further to achieve more complicated CV tasks.</p>
+<!-- TODO -->
 
-<hr>
+
 <h2> Credits and Bibliography </h2>
 <p>OpenCV documentation</p>
 
