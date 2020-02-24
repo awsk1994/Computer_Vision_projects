@@ -174,7 +174,7 @@ if __name__ == "__main__":
             # if max_match_score >= 0.5 and <= x <= and <= y <= :
             person_cnt += 1
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)
-            cv2.putText(frame, "%i %i" % (x, y), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=(255, 0, 0)) 
+            cv2.putText(frame, "%.2f" % (max_match_score), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=(255, 0, 0)) 
 
         cv2.putText(frame, "Detected %i person" % (person_cnt), (30, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color=(0, 255, 0)) 
         # TODO: match each bounding box with pedestrian template
