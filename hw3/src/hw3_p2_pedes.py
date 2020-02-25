@@ -111,14 +111,13 @@ if __name__ == "__main__":
 
 
     template_names = [
-        "src/img/p2/pedes_template1.png",
-        "src/img/p2/pedes_template2.png",
-        "src/img/p2/pedes_template3.png",
-        # "src/img/p2/pedes_template2.png"
+        "./img/p2/pedes_template1.png",
+        "./img/p2/pedes_template2.png",
+        "./img/p2/pedes_template3.png",
     ]
     templates = []
 
-    avg_frame = get_average_video_frame("./CS585-PeopleImages/")
+    avg_frame = get_average_video_frame("../CS585-PeopleImages/")
     if DEBUG:
         cv2.imshow("AvgFrame", avg_frame)
         print(avg_frame.shape)
@@ -130,17 +129,14 @@ if __name__ == "__main__":
         _, template = cv2.threshold(template, 1, 255, cv2.THRESH_BINARY)
         templates.append(template)
 
-    for frame_id, frame in video_frame_iterator("./CS585-PeopleImages/", DEBUG):
+    for frame_id, frame in video_frame_iterator("../CS585-PeopleImages/", DEBUG):
 
         # Remove background bias
         frame_diff = cv2.absdiff(frame, avg_frame)
-        # cv2.imshow("frame_diff", frame_diff)
         motion_diff = cv2.absdiff(frame_diff, prev_frame)
-        # cv2.imshow("motion_diff", motion_diff)
         # Currently only diff previous frame
         prev_frame = frame_diff # TODO: track multiple previous frames (window of frames)
         bi_modal_diff = cv2.bitwise_or(frame_diff, motion_diff)
-        # cv2.imshow("bi_diff", bi_modal_diff)
         frame_diff = cv2.cvtColor(bi_modal_diff, cv2.COLOR_BGR2GRAY)
 
         # Thresholding
@@ -172,7 +168,6 @@ if __name__ == "__main__":
                     max_match_idx = i
                     max_match_score = match_score
 
-            # if max_match_score >= 0.5 and <= x <= and <= y <= :
             person_cnt += 1
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)
             cv2.putText(frame, "%.2f" % (max_match_score), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=(255, 0, 0)) 
@@ -182,10 +177,7 @@ if __name__ == "__main__":
         #  thresholding the confidence and render person_cnt on frame
 
         cv2.imshow("Orig_video", frame)
-        # cv2.imshow("Diff_video", frame_diff)
-        # cv2.imshow("diff_video", frame_diff)
         cv2.imshow("bi-modal_diff_video", frame_th)
 
-        # cv2.waitKey(0)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             exit()

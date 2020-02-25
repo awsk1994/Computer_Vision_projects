@@ -5,20 +5,27 @@ import re
 import cv2
 import numpy as np
 
-from src.hw3_p1_utils import *
-
 cv2.namedWindow("Orig_video")
 
 # Constants
-SCALE_FACTOR = 2
-FPS = 5
+SCALE_FACTOR = 4
+FPS = 20
 DEBUG = False
 
 def nothing(x):
     pass
 
+# HSV filter bar
+if DEBUG:
+    cv2.createTrackbar("low_h", "Orig_video", 0, 255, nothing)   # 11
+    cv2.createTrackbar("high_h", "Orig_video", 12, 255, nothing)    # 11
+    cv2.createTrackbar("low_s", "Orig_video", 94, 255, nothing)  # 190
+    cv2.createTrackbar("high_s", "Orig_video", 178, 255, nothing)    # 190
+    cv2.createTrackbar("low_v", "Orig_video", 117, 255, nothing)  # 48
+    cv2.createTrackbar("high_v", "Orig_video", 255, 255, nothing)    # 48
+
 def get_frame_id(fn):
-    return int(re.sub(r".*?frame(\d+)\.ppm", "\\1", fn))
+    return int(re.sub(r"piano_(\d+)\.png", "\\1", fn))
 
 def get_next_new_color(usedColors):
     newColor = (np.random.choice(range(256), size=3))
@@ -60,6 +67,24 @@ def video_frame_iterator(video_dir, debug):
                 new_shape = (frame.shape[1]//SCALE_FACTOR, frame.shape[0]//SCALE_FACTOR)
                 frame = cv2.resize(frame, new_shape)
                 yield (get_frame_id(fn), frame)
+
+def skin_masking(frame, debug):
+    if debug:
+        low_h = cv2.getTrackbarPos("low_h", "Orig_video")
+        high_h = cv2.getTrackbarPos("high_h", "Orig_video")
+        low_s = cv2.getTrackbarPos("low_s", "Orig_video")
+        high_s = cv2.getTrackbarPos("high_s", "Orig_video")
+        low_v = cv2.getTrackbarPos("low_v", "Orig_video")
+        high_v = cv2.getTrackbarPos("high_v", "Orig_video")
+    else:
+        low_h, high_h, low_s, high_s, low_v, high_v = [0, 12, 94, 178, 117, 255]
+
+    lower_range = np.array([low_h, low_s, low_v], dtype= "uint8")
+    upper_range = np.array([high_h, high_s, high_v], dtype ="uint8")
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    frame = cv2.inRange(frame, lower_range, upper_range);
+    
+    return frame
 
 def get_label_map(frame_th, num_labels, labels, stats, centroids):
     label_map = np.zeros((frame_th.shape[0], frame_th.shape[1], 3), np.uint8)
@@ -114,48 +139,51 @@ def get_label_map(frame_th, num_labels, labels, stats, centroids):
 
 if __name__ == "__main__":
 
-    avg_frame = get_average_video_frame("./CS585-BatImages/Gray/")
-    # if DEBUG:
-    # cv2.imshow("AvgFrame", avg_frame)
-    # cv2.waitKey(0)
-    for frame_id, frame in video_frame_iterator("./CS585-BatImages/Gray/", DEBUG):
+    avg_frame = get_average_video_frame("../CS585-PianoImages")
+    if DEBUG:
+        cv2.imshow("AvgFrame", avg_frame)
 
-        # Remove background bias
+    cv2.waitKey(0)
+    for frame_id, frame in video_frame_iterator("../CS585-PianoImages", DEBUG):
+        
         frame_diff = cv2.absdiff(frame, avg_frame)
         # cv2.imshow("diff", frame_diff)
         frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
+        _, roi_mask = cv2.threshold(frame_diff, 10, 255, cv2.THRESH_BINARY)
         
-        # Thresholding
-        _, frame_th = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
-        frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
+        if DEBUG:
+            cv2.imshow("mask", roi_mask)
+
+        frame_roi = cv2.bitwise_and(frame, frame, mask=roi_mask)
+
+        # skin detection
+        frame_gs = skin_masking(frame_roi, DEBUG)
+
+        # Morphology
+        frame_blur = cv2.GaussianBlur(frame_gs, (3, 3), 0)
         _, frame_th = cv2.threshold(frame_blur, 50, 255, cv2.THRESH_BINARY)
-        
-        # cv2.imshow("morph", frame_th)
+        frame_blur = cv2.GaussianBlur(frame_th, (5, 5), 0)
+        _, frame_th = cv2.threshold(frame_blur, 80, 255, cv2.THRESH_BINARY)
 
-        # Flood filling
+        kernel_3x3 = np.ones((5, 5), np.uint8)
+        kernel_7x7 = np.ones((3, 3), np.uint8)
+        frame_gs = cv2.dilate(frame_gs, kernel_3x3, iterations=1)
+        frame_gs = cv2.erode(frame_gs, kernel_3x3, iterations=1)
+        frame_gs = cv2.dilate(frame_gs, kernel_7x7, iterations=1)
+        frame_gs = cv2.erode(frame_gs, kernel_7x7, iterations=1)
+
+        frame_gs = cv2.GaussianBlur(frame_gs, (3, 3), 0)
+        _, frame_gs = cv2.threshold(frame_gs, 150, 255, cv2.THRESH_BINARY)
+
+        # Flood filling with object stats
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
+        label_map, stats = get_label_map(frame_th, num_labels, labels, stats, centroids)
+        
+        # Draw hand bounding box
+        for stat in stats:
+            x, y, w, h = stat[1][:4]
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-        for stat in stats[1:]:
-            x, y, w, h = stat[:4]
-            circularity = stat[4] / (w*h) #(((x**2+y**2)**0.5/2)**2*np.pi)
-            aspect_ratio = max(w, h) / min(w, h)
-            spread = True
-            if stat[4] < 10.:
-                continue
-            # if aspect_ratio > 2.0:
-            if circularity > 0.5:
-                color = (255, 0, 0)
-                spread = False
-            else:
-                color = (0, 0, 255)
-            cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
-            cv2.putText(frame, "%.3f" % (aspect_ratio), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
-            if spread:
-                cv2.putText(frame, "spread", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
-            else:
-                cv2.putText(frame, "fold", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 255, 0)) 
-
-        cv2.imshow("diff_video", frame_th)
         cv2.imshow("Orig_video", frame)
 
         if cv2.waitKey(5) & 0xFF == ord('q'):
