@@ -275,7 +275,7 @@ Feb 23, 2020
 
 <p>Lastly we draw the bounding box of the segmentated object.</p>
 <h2>Results</h2>
-<p>Here are a couple frame snippets of the whole video. The full processed video will be uploaded to Youtube with links provided.</p>
+<p>Here are a couple frame snippets of the whole video.</p>
 
 <table>
     <tr>
@@ -288,71 +288,68 @@ Feb 23, 2020
     </tr>
 </table>
 
-<!-- 
-<h3>Original</h3>
-<table>
-    <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
-    </tr>
-    <tr>
+<p>The full processed video has been uploaded and can be viewed at:</p>
 
-    </tr>
-</table>
-
-<h3>Connected Components</h3>
-<table>
-    <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
-    </tr>
-    <tr>
-
-    </tr>
-</table> -->
+<iframe width="560" height="315" src="https://www.youtube.com/embed/764if5CIqWc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 <h1>Part 2.2 - Bat Detection</h1>
 <div class="main-body">
 <hr>
 <h2> Problem Definition </h2>
-<!-- <p></p> -->
-<!-- <p></p> -->
+<p>In this task, we have two videos of bats flying around. The first video is shot using normal RGB camera while the second video is shot using infared camera. Similar to the previous task, the cameras are fixed, and the only things that are moving in the scene are the bats. We are again trying to come up with a segmentation algorithm that segmentates the bats. One thing that is different is that we also want to detect whether each bat is spreading or folding their wings.</p>
+<p>We figured that the infared (false color) channel frames could be really useful to this task, but due to time issue, we only had the time to implement our algorithms on the RGB channel frames.</p>
 <hr>
 <h2> Method and Implementation </h2>
 
-<h2>Results</h2>
-<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+<h3>Subtracting Average Frame</h3>
+<p>Since the camera is fixed and the only objects that are moving in the scene are the objects that we are interested in capturing, we again subtract each frame with the average frame.</p>
 
-
-<h3>Original</h3>
 <table>
     <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
+        <th> Average Frame </th>
+        <td><img src="./img/p2.2/avg_frame.png" class="img-face"/></td>
     </tr>
     <tr>
-
+        <th> Subtracting with Average Frame</th>
+        <td><img src="./img/p2.2/diff_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> After Morphology</th>
+        <td><img src="./img/p2.2/morph.png" class="img-face"/></td>
     </tr>
 </table>
 
-<h3>Connected Components</h3>
+<p>We noticed that the background comes in a gradient pattern, which might create difficulty if/when we apply absolute threshold to the frame directly. But we circumvented this problem by subtracting the average frame for each frame, which somehow discount the bias of this video dataset.</p>
+
+<h3>Flood Filling Algorithm</h3>
+<p>Next we apply `cv2.connectedComponentsWithStats()` to the frame. We drew bounding box around every bat that we detected:</p>
 <table>
     <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
-    </tr>
-    <tr>
-
+        <th> Flood Filling </th>
+        <td><img src="./img/p2.2/flood_fill.png" class="img-face"/></td>
     </tr>
 </table>
+
+<p>Note that we still tend to miss some rather small bats possibly due to morphology operation or background subtraction.</p>
+
+<h3>Bat Wing Spread-or-not Detection</h3>
+<p>After observing the video, we figure that the bats tend to conform to a more "circular" shape when they fold their wings, and not that "circular" when they spread their wings.</p>
+<p>We implemented both circularity and aspect ratio, and decided a good threshold base on experiments to classify all the detected bats. Results are shown as follow:</p>
+
+<table>
+    <tr>
+        <th> Result Frame 1 </th>
+        <td><img src="./img/p2.2/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result Frame 2 </th>
+        <td><img src="./img/p2.2/result2.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We think that the detection result can be further improved by implement other object features such as orientation, second moments, compactness and so on. However due to time issue, we didn't had the time to implement that. Full processed video can be viewed at: </p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/PK7n5ROcc_E" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 
 <h1>Part 2.3 - Pedestrian Detection</h1>
