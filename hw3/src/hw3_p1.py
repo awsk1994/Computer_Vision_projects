@@ -4,7 +4,7 @@ options = {
     'write_output': False,
     'show_res': False,
     'show_moment_res': True,
-    'moment_debug': False,
+    'moment_debug': True,
     'debug': False,
     'show_which_step': True
 }
