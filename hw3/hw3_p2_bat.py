@@ -11,7 +11,7 @@ cv2.namedWindow("Orig_video")
 
 # Constants
 SCALE_FACTOR = 2
-FPS = 3
+FPS = 5
 DEBUG = False
 
 def nothing(x):
@@ -116,12 +116,13 @@ if __name__ == "__main__":
 
     avg_frame = get_average_video_frame("./CS585-BatImages/Gray/")
     # if DEBUG:
-    cv2.imshow("AvgFrame", avg_frame)
-    cv2.waitKey(0)
+    # cv2.imshow("AvgFrame", avg_frame)
+    # cv2.waitKey(0)
     for frame_id, frame in video_frame_iterator("./CS585-BatImages/Gray/", DEBUG):
 
         # Remove background bias
         frame_diff = cv2.absdiff(frame, avg_frame)
+        # cv2.imshow("diff", frame_diff)
         frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
         
         # Thresholding
@@ -129,6 +130,8 @@ if __name__ == "__main__":
         frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
         _, frame_th = cv2.threshold(frame_blur, 50, 255, cv2.THRESH_BINARY)
         
+        # cv2.imshow("morph", frame_th)
+
         # Flood filling
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
 
@@ -136,14 +139,21 @@ if __name__ == "__main__":
             x, y, w, h = stat[:4]
             circularity = stat[4] / (w*h) #(((x**2+y**2)**0.5/2)**2*np.pi)
             aspect_ratio = max(w, h) / min(w, h)
+            spread = True
             if stat[4] < 10.:
                 continue
-            if aspect_ratio > 2.0 or circularity > 0.7:
-                color = (0, 255, 0)
+            # if aspect_ratio > 2.0:
+            if circularity > 0.5:
+                color = (255, 0, 0)
+                spread = False
             else:
                 color = (0, 0, 255)
             cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
             cv2.putText(frame, "%.3f" % (aspect_ratio), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
+            if spread:
+                cv2.putText(frame, "spread", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(0, 255, 0))
+            else:
+                cv2.putText(frame, "fold", (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 255, 0)) 
 
         cv2.imshow("diff_video", frame_th)
         cv2.imshow("Orig_video", frame)
