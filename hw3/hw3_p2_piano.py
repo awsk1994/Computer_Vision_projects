@@ -147,18 +147,19 @@ if __name__ == "__main__":
     for frame_id, frame in video_frame_iterator("./CS585-PianoImages", DEBUG):
         
         frame_diff = cv2.absdiff(frame, avg_frame)
+        # cv2.imshow("diff", frame_diff)
         frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
         _, roi_mask = cv2.threshold(frame_diff, 10, 255, cv2.THRESH_BINARY)
         
         if DEBUG:
-            cv2.imshow("mask", roi_mask)    
+            cv2.imshow("mask", roi_mask)
 
         frame_roi = cv2.bitwise_and(frame, frame, mask=roi_mask)
 
         # skin detection
         frame_gs = skin_masking(frame_roi, DEBUG)
 
-        cv2.imshow("skin", frame_gs)
+        # cv2.imshow("skin", frame_gs)
 
         # Morphology
         frame_blur = cv2.GaussianBlur(frame_gs, (3, 3), 0)
@@ -177,10 +178,12 @@ if __name__ == "__main__":
         _, frame_gs = cv2.threshold(frame_gs, 150, 255, cv2.THRESH_BINARY)
 
 
+        # cv2.imshow("morph", frame_gs)
+
         # Flood filling with object stats
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
         label_map, stats = get_label_map(frame_th, num_labels, labels, stats, centroids)
-        cv2.imshow("labels", label_map)
+        # cv2.imshow("labels", label_map)
         
         # Draw hand bounding box
         for stat in stats:
@@ -190,4 +193,4 @@ if __name__ == "__main__":
         cv2.imshow("Orig_video", frame)
 
         if cv2.waitKey(25) & 0xFF == ord('q'):
-            exit(0)
+            while(True): continue#exit(0)

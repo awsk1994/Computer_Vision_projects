@@ -30,7 +30,7 @@ hr{
 margin:20px 0px 20px 0px;
 }
 .img-face{
-width:100%
+width:50%
 }
 .tg {
     border-collapse: collapse;
@@ -204,34 +204,201 @@ Feb 23, 2020
 <hr>
 </div>
 
-<h1>Part 2</h1>
+<h1>Part 2.1 - Pianist Hand Segmentation</h1>
 <div class="main-body">
 <hr>
 <h2> Problem Definition </h2>
-
-<!-- TODO -->
-
+<p>In this task, we have a video of a pianist playing a piano. The camera is fixed, and the only thing that is moving in the scene is the pianist's body. We are trying to come up with a segmentation algorithm that segmentates the pianist hands and further label their bounding box on the video.</p>
 <hr>
 <h2> Method and Implementation </h2>
 
-<!-- TODO -->
+<hr>
+
+<h3>Subtracting Average Frame</h3>
+
+<p>Since the only object that's moving in the scene is the pianist himself, we figure that we might only need to focus on analyzing the region where is different when comparing to the average frame.</p>
+<table>
+    <tr>
+        <th>Average Frame</th>
+        <td><img src="./img/p2.1/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th>Subtracting with Average Frame</th>
+        <td><img src="./img/p2.1/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th>Region of Interest to Focus</th>
+        <td><img src="./img/p2.1/roi_mask.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>After getting the ROI (Region of Interest) mask, we perform bitwise and with the original frame, so anywhere outside the ROI will appear as background.</p>
+<hr>
+
+<h3>Skin Detection</h3>
+
+<p>Next we perform skin detection algorithm to the objects that lies within ROI.</p>
+<p>We will not explain the techniques used here in detail since we did it on hw2 already. Basically we tuned with different HSV thresholds and figure the values that best works on this dataset.</p>
+
+<table>
+    <tr>
+        <th>Skin Detection Result</th>
+        <td><img src="./img/p2.1/skin_mask.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We then perform a series of morphology operations and blurring + absolute-thresholding combination to reduce the noice in the detected skin mask. We decided that the details of the morphology and pre-processing technique will be explained during demo since it's not the core part of this task.</p>
+
+<table>
+    <tr>
+        <th>Morphology & Gaussian Blurring & Absolute Thresholding </th>
+        <td><img src="./img/p2.1/morph.png" class="img-face"/></td>
+    </tr>
+</table>
 
 <hr>
-<h2>Experiments</h2>
-<h3>Environmental Factors</h3>
-<!-- TODO -->
-<h3>Algorithms</h3>
-<!-- TODO -->
-<h3>Hand Gestures</h3>
-<!-- TODO -->
-<hr>
+
+<h3>Flood Filling (Connected Component Labeling) Algorithm</h3>
+<p>We then apply flood filling algorithm to capture objects of interest using `cv2.connectedComponentsWithStats()`. This function returns the number of labeled objects, the label map, the statistics of the objects, and the centroids of the objects. </p>
+<p>We utilize these features of the objects plus some heuristics (area, position ..etc) to decide whether the objects is similar to a hand (single hand and overlapped hand are dealt with separately).</p>
+
+<table>
+    <tr>
+        <th> Floodfill & Heuristics (Single Hands)</th>
+        <td><img src="./img/p2.1/flood_fill.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Floodfill & Heuristics (Overlapped Hands)</th>
+        <td><img src="./img/p2.1/flood_fill_overlap.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>Lastly we draw the bounding box of the segmentated object.</p>
 <h2>Results</h2>
-<!-- TODO -->
+<p>Here are a couple frame snippets of the whole video. The full processed video will be uploaded to Youtube with links provided.</p>
 
+<table>
+    <tr>
+        <th> Result Frame 1</th>
+        <td><img src="./img/p2.1/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result Frame 2</th>
+        <td><img src="./img/p2.1/result2.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<!-- 
+<h3>Original</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table>
+
+<h3>Connected Components</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table> -->
+
+<h1>Part 2.2 - Bat Detection</h1>
+<div class="main-body">
 <hr>
+<h2> Problem Definition </h2>
+<!-- <p></p> -->
+<!-- <p></p> -->
+<hr>
+<h2> Method and Implementation </h2>
+
+<h2>Results</h2>
+<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+
+
+<h3>Original</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table>
+
+<h3>Connected Components</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table>
+
+
+<h1>Part 2.3 - Pedestrian Detection</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<p></p>
+<p></p>
+<hr>
+<h2> Method and Implementation </h2>
+
+<h2>Results</h2>
+<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+
+
+<h3>Original</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table>
+
+<h3>Connected Components</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+
+    </tr>
+</table>
+
+<!-- <hr> -->
 <h2> Discussion </h2>
 <!-- TODO -->
-<hr>
+<!-- <hr> -->
+
 <h2> Conclusions </h2>
 <!-- TODO -->
 
@@ -239,7 +406,6 @@ Feb 23, 2020
 <h2> Credits and Bibliography </h2>
 <p>OpenCV documentation</p>
 
-<hr>
 </div>
 </body>
 </html>
