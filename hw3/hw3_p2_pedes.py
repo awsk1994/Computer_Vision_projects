@@ -9,7 +9,7 @@ cv2.namedWindow("Orig_video")
 
 # Constants
 SCALE_FACTOR = 2
-FPS = 20
+FPS = 10
 DEBUG = False
 
 def get_frame_id(fn):
@@ -119,27 +119,28 @@ if __name__ == "__main__":
     templates = []
 
     avg_frame = get_average_video_frame("./CS585-PeopleImages/")
-    # if DEBUG:
-    #     cv2.imshow("AvgFrame", avg_frame)
-    print(avg_frame.shape)
+    if DEBUG:
+        cv2.imshow("AvgFrame", avg_frame)
+        print(avg_frame.shape)
+
     prev_frame = np.zeros((avg_frame.shape[0], avg_frame.shape[1], 3), np.uint8)
 
     for i, fn in enumerate(template_names):
         template = cv2.imread(fn, 0)
-        # template = cv2.resize(template, (50, int(template.shape[0]/template.shape[1]*50)))
         _, template = cv2.threshold(template, 1, 255, cv2.THRESH_BINARY)
         templates.append(template)
-    # cv2.imshow("Template1", templates[0])
-    # cv2.imshow("Template2", templates[1])
-    # cv2.waitKey(0)
+
     for frame_id, frame in video_frame_iterator("./CS585-PeopleImages/", DEBUG):
 
         # Remove background bias
         frame_diff = cv2.absdiff(frame, avg_frame)
+        # cv2.imshow("frame_diff", frame_diff)
         motion_diff = cv2.absdiff(frame_diff, prev_frame)
+        # cv2.imshow("motion_diff", motion_diff)
         # Currently only diff previous frame
         prev_frame = frame_diff # TODO: track multiple previous frames (window of frames)
         bi_modal_diff = cv2.bitwise_or(frame_diff, motion_diff)
+        # cv2.imshow("bi_diff", bi_modal_diff)
         frame_diff = cv2.cvtColor(bi_modal_diff, cv2.COLOR_BGR2GRAY)
 
         # Thresholding
@@ -147,7 +148,7 @@ if __name__ == "__main__":
         frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
         _, frame_th = cv2.threshold(frame_blur, 80, 255, cv2.THRESH_BINARY)
         
-        # # Flood filling
+        # Flood filling
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
 
         person_cnt = 0
@@ -170,7 +171,7 @@ if __name__ == "__main__":
                 if match_score > max_match_score:
                     max_match_idx = i
                     max_match_score = match_score
-            
+
             # if max_match_score >= 0.5 and <= x <= and <= y <= :
             person_cnt += 1
             cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 1)

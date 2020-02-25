@@ -115,7 +115,7 @@ Feb 23, 2020
 <h4>Second Moment</h4>
 <img style="width: 100%" src="./img/p1/second_moment.png"/>
 <h4>Orientation</h4>
-<img style="width: 100%" src="./img/p1/orientation.png"/>
+<img style="width: 10%" src="./img/p1/orientation.png"/>
 
 <h3>Skeleton Finding</h3>
 <p>An overview of this algorithm is that it continuously erodes the original image. At each iteration, we get the difference from previous and stores it (using bitwise_or). The result is a skeletion path of the image of focus</p>
@@ -356,49 +356,83 @@ Feb 23, 2020
 <div class="main-body">
 <hr>
 <h2> Problem Definition </h2>
-<p></p>
+<p>In this task, we have a videos of pedestirans walking in a park. Similar to the previous task, the cameras are fixed, and the only things that are moving in the scene are the pedestrians. We are trying to come up with a segmentation algorithm that segmentates the pedestrian. On top of that, we are asked to count the total amount of pedestrians that appeared in the scene.</p>
 <p></p>
 <hr>
 <h2> Method and Implementation </h2>
 
-<h2>Results</h2>
-<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+<h3>Subtracting Average Frame</h3>
+<p>Since the camera is fixed and the only objects that are moving in the scene are the objects that we are interested in capturing, we subtract each frame with the average frame.</p>
 
-
-<h3>Original</h3>
+<h3>Motion Difference Capturing</h3>
+<p>We also calculate for each frame the difference with the previous frame, so that we can keep track of the motion of the pedestiran.</p>
+<p>After getting the frame mask that subtracted the average frame and the frame mask that subtracted the previous frame, we performed bitwise or operation to merge these two masks. The result of the merged mask turns out to make the area of the pedestrians more significant in the frame.</p>
 <table>
     <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
+        <th> Average Frame </th>
+        <td><img src="./img/p2.3/avg_frame.png" class="img-face"/></td>
     </tr>
     <tr>
-
+        <th> Subtracting Average Frame </th>
+        <td><img src="./img/p2.3/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting Previous Frame </th>
+        <td><img src="./img/p2.3/motion_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Merged Frame Mask </th>
+        <td><img src="./img/p2.3/bimodal_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Merged Frame Mask (Thresholded) </th>
+        <td><img src="./img/p2.3/bimodal_diff_gs.png" class="img-face"/></td>
     </tr>
 </table>
 
-<h3>Connected Components</h3>
+<h3>Flood Filling</h3>
+<p>Next we apply `cv2.connectedComponentsWithStats()` to the frame. We drew bounding boxes over every object we labeled:</p>
+
 <table>
     <tr>
-        <th>Open Hand</th>
-        <th>Open Hand Partial</th>
-        <th>Open Fist</th>
-        <th>Tumor</th>
-    </tr>
-    <tr>
-
+        <th> Flood Fill</th>
+        <td><img src="./img/p2.3/flood_fill.png" class="img-face"/></td>
     </tr>
 </table>
 
-<!-- <hr> -->
-<h2> Discussion </h2>
-<!-- TODO -->
-<!-- <hr> -->
+<h3>Pedestrian Detection</h3>
+<p> After observing the video, we figure that pedestrian's bounding are more "rectangular"-like. Hence we calculate the aspect ratio of the detected object and filtered out the objects that are too small.</p>
+<p>Narrowing down the candidate objects, we lastly resize our pedestrian templates to the size of the object of interest, and calculate the normalized correlation score of that object w.r.t. each of the templates. The template and results are as follow:</p>
 
-<h2> Conclusions </h2>
-<!-- TODO -->
+<table>
+    <!-- <tr>
+        <th> Template</th>
+        <td><img src="./img/p2.3/pedes_template1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Template 2</th>
+        <td><img src="./img/p2.3/pedes_template2.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Template 3</th>
+        <td><img src="./img/p2.3/pedes_template3.png" class="img-face"/></td>
+    </tr> -->
+    <tr>
+        <th> Result1</th>
+        <td><img src="./img/p2.3/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result2</th>
+        <td><img src="./img/p2.3/result2.png" class="img-face"/></td>
+    </tr>
+</table>
 
+<p>We uploaded the process video to Youtube: </p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/DkFntopmbas" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h2> Discussion & Conclusions </h2>
+<p> In conclusion, I think this task lays a good foundation on how to combine multiple computer vision techniques to achieve object segmentation for different kinds of dataset. </p>
 
 <h2> Credits and Bibliography </h2>
 <p>OpenCV documentation</p>
