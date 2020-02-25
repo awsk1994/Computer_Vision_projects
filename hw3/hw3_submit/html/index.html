@@ -1,0 +1,443 @@
+<html>
+<head>
+<title> CS585 Homework Template: HW[x] Student Name [xxx]  </title>
+<style>
+<!--
+body{
+font-family: 'Trebuchet MS', Verdana;
+}
+p{
+font-family: 'Trebuchet MS', Times;
+margin: 10px 10px 15px 20px;
+}
+h4{
+    margin: 15px;
+}
+h3{
+margin: 10px;
+}
+h2{
+margin: 10px;
+}
+h1{
+margin: 10px 0px 0px 20px;
+}
+div.main-body{
+align:center;
+margin: 30px;
+}
+hr{
+margin:20px 0px 20px 0px;
+}
+.img-face{
+width:50%
+}
+.tg {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.tg td {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    padding: 10px 5px;
+    border-style: solid;
+    border-width: 1px;
+    overflow: hidden;
+    word-break: normal;
+    border-color: black;
+}
+
+.tg th {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    padding: 10px 5px;
+    border-style: solid;
+    border-width: 1px;
+    overflow: hidden;
+    word-break: normal;
+    border-color: black;
+}
+
+.tg .tg-ted4 {
+    border-color: #333333;
+    text-align: center;
+    vertical-align: middle;
+}
+
+-->
+</style>
+</head>
+
+<body>
+<center>
+<a href="http://www.bu.edu"><img border="0" src="http://www.cs.bu.edu/fac/betke/images/bu-logo.gif"
+width="119" height="120"></a>
+</center>
+
+<h1>Assignment 3</h1>
+<p> 
+CS 585 HW 3<br>
+Alex Wong and Wei-Hsiang Lin<br>
+Feb 23, 2020
+</p>
+
+<h1>Part 1</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<p>For Part 1, we are given binary images of hands and a stained tissue sample of a breast cancer tumor. We need to label the connected components, apply boundary following algorithm, compute image moment metrics and apply skeleton finding algorithm.</p>
+<p>This is very important in the area of computer vision, because it lays as foundations for more complicated object segmentation problems.</p>
+<hr>
+<h2> Method and Implementation </h2>
+<h3>Connected Components</h3>
+<h4>Pre-Process Image</h4>
+<p>The first step is to <b>preprocess the image</b> using a variation of dilation, erosion, opening, closing, gaussian blur and thresholding. Depending on the situation, the operations vary slightly.</p>
+<p>We usually use dilation to expand the image of focus; eg. filling a hole or merging lines together</p>
+<p>We usually use erosion to do the opposite; break away small parts.</p>
+<p>The combination of erosion and dilation, depending on which goes first, is known as 'opening' and 'closing'. Closing helps to remove small blobs and Opening helps to fill in holes.</p>
+<p>Blur and Thresholding are additional operations used to remove unwanted pixels.</p>
+
+<h4>Flood Fill</h4>
+<p>The next step is to retrieve the connected components. To achieve this, I modified the usual flood fill algorithm to take in multiple colors as it iteratively traverses the image. The result is an image where different connected components have different colors (randomly generated).</p>
+
+<h3>Filter large components</h3>
+<p>Next, we find the biggest n connected components by counting the colors(eg. the most-occuring color denotes the largest connected component). We assume the largest component is the background (this works for the sample images provided), and thus, we don't take in account of the largest component. We take the 2nd to n-th component as our objects of focus.</p>
+
+<h3>Boundary Tracing</h3>
+<p>We find the boundary of our object of focus by using the boundary tracing algorithm. In short, it finds the first black pixel (start of the boundary), and then circles the black pixel clock-wise to find the next black pixel, which becomes the next pixel of our boundary. Eventually, it continues until we end up with the first black pixel we started with. By then, we already have a chain of black pixels, which is the boundary of our object of focus.</p>
+
+<h3>Image Moments</h3>
+<p>The algorithms used to calculate this is as follows:</p>
+<h4>Area and Center of Mass</h4>
+<img style="width: 100%" src="./img/p1/area_center_of_mass.png"/>
+<h4>Second Moment</h4>
+<img style="width: 100%" src="./img/p1/second_moment.png"/>
+<h4>Orientation</h4>
+<img style="width: 10%" src="./img/p1/orientation.png"/>
+
+<h3>Skeleton Finding</h3>
+<p>An overview of this algorithm is that it continuously erodes the original image. At each iteration, we get the difference from previous and stores it (using bitwise_or). The result is a skeletion path of the image of focus</p>
+
+<hr>
+<h2>Results</h2>
+<p>The results were good, but it's important to keep in mind that it was fine-tuned manually. A new image may not work with the current parameters.</p>
+
+
+<h3>Original</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open-bw-full.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open-bw-partial.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist-bw.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor-fold.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Connected Components</h3>
+<table>
+	<tr>
+		<th>Open Hand</th>
+		<th>Open Hand Partial</th>
+		<th>Open Fist</th>
+		<th>Tumor</th>
+	</tr>
+	<tr>
+		<td style="width:25%"><img src="./img/p1/open_full_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_cc.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_cc.png" class="img-face"/></td>
+	</tr>
+</table>
+
+
+<h3>Boundary Tracing</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open_full_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_boundary_img.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_boundary_img.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Skeleton Finding</h3>
+<table>
+    <tr>
+        <th>Open Hand</th>
+        <th>Open Hand Partial</th>
+        <th>Open Fist</th>
+        <th>Tumor</th>
+    </tr>
+    <tr>
+        <td style="width:25%"><img src="./img/p1/open_full_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_partial_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/open_fist_skeleton.png" class="img-face"/></td>
+        <td style="width:25%"><img src="./img/p1/tumor_skeleton.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Image Moments</h3>
+<img style="width:100%" src="./img/p1/moment_numbers.png"/>
+
+<hr>
+<h2> Discussion </h2>
+<p>In general, I think the task was very successful. However, it is careful to note that each image was preprocessed using slightly different operations and this step is not generalizable. I can foresee future research to focus on detecting certain values (eg. average intensity values) and applying operations based on these values.</p>
+<p>For this task, the library used included numpy, opencv and matplotlib. In opencv, the operations used are morophologyEx, gaussianBlur, treshold, erode and  dilate. These have been explained previously already.</p>
+
+<hr>
+<h2> Conclusions </h2>
+<p>In conclusion, I think this task lays a good foundation on how to use erosion and dilation. These 2 operations are essential tools that will be useful for more complicated computer vision tasks.</p>
+<hr>
+</div>
+
+<h1>Part 2.1 - Pianist Hand Segmentation</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<p>In this task, we have a video of a pianist playing a piano. The camera is fixed, and the only thing that is moving in the scene is the pianist's body. We are trying to come up with a segmentation algorithm that segmentates the pianist hands and further label their bounding box on the video.</p>
+<hr>
+<h2> Method and Implementation </h2>
+
+<hr>
+
+<h3>Subtracting Average Frame</h3>
+
+<p>Since the only object that's moving in the scene is the pianist himself, we figure that we might only need to focus on analyzing the region where is different when comparing to the average frame.</p>
+<table>
+    <tr>
+        <th>Average Frame</th>
+        <td><img src="./img/p2.1/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th>Subtracting with Average Frame</th>
+        <td><img src="./img/p2.1/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th>Region of Interest to Focus</th>
+        <td><img src="./img/p2.1/roi_mask.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>After getting the ROI (Region of Interest) mask, we perform bitwise and with the original frame, so anywhere outside the ROI will appear as background.</p>
+<hr>
+
+<h3>Skin Detection</h3>
+
+<p>Next we perform skin detection algorithm to the objects that lies within ROI.</p>
+<p>We will not explain the techniques used here in detail since we did it on hw2 already. Basically we tuned with different HSV thresholds and figure the values that best works on this dataset.</p>
+
+<table>
+    <tr>
+        <th>Skin Detection Result</th>
+        <td><img src="./img/p2.1/skin_mask.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We then perform a series of morphology operations and blurring + absolute-thresholding combination to reduce the noice in the detected skin mask. We decided that the details of the morphology and pre-processing technique will be explained during demo since it's not the core part of this task.</p>
+
+<table>
+    <tr>
+        <th>Morphology & Gaussian Blurring & Absolute Thresholding </th>
+        <td><img src="./img/p2.1/morph.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<hr>
+
+<h3>Flood Filling (Connected Component Labeling) Algorithm</h3>
+<p>We then apply flood filling algorithm to capture objects of interest using `cv2.connectedComponentsWithStats()`. This function returns the number of labeled objects, the label map, the statistics of the objects, and the centroids of the objects. </p>
+<p>We utilize these features of the objects plus some heuristics (area, position ..etc) to decide whether the objects is similar to a hand (single hand and overlapped hand are dealt with separately).</p>
+
+<table>
+    <tr>
+        <th> Floodfill & Heuristics (Single Hands)</th>
+        <td><img src="./img/p2.1/flood_fill.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Floodfill & Heuristics (Overlapped Hands)</th>
+        <td><img src="./img/p2.1/flood_fill_overlap.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>Lastly we draw the bounding box of the segmentated object.</p>
+<h2>Results</h2>
+<p>Here are a couple frame snippets of the whole video.</p>
+
+<table>
+    <tr>
+        <th> Result Frame 1</th>
+        <td><img src="./img/p2.1/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result Frame 2</th>
+        <td><img src="./img/p2.1/result2.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>The full processed video has been uploaded and can be viewed at:</p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/764if5CIqWc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h1>Part 2.2 - Bat Detection</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<p>In this task, we have two videos of bats flying around. The first video is shot using normal RGB camera while the second video is shot using infared camera. Similar to the previous task, the cameras are fixed, and the only things that are moving in the scene are the bats. We are again trying to come up with a segmentation algorithm that segmentates the bats. One thing that is different is that we also want to detect whether each bat is spreading or folding their wings.</p>
+<p>We figured that the infared (false color) channel frames could be really useful to this task, but due to time issue, we only had the time to implement our algorithms on the RGB channel frames.</p>
+<hr>
+<h2> Method and Implementation </h2>
+
+<h3>Subtracting Average Frame</h3>
+<p>Since the camera is fixed and the only objects that are moving in the scene are the objects that we are interested in capturing, we again subtract each frame with the average frame.</p>
+
+<table>
+    <tr>
+        <th> Average Frame </th>
+        <td><img src="./img/p2.2/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting with Average Frame</th>
+        <td><img src="./img/p2.2/diff_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> After Morphology</th>
+        <td><img src="./img/p2.2/morph.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We noticed that the background comes in a gradient pattern, which might create difficulty if/when we apply absolute threshold to the frame directly. But we circumvented this problem by subtracting the average frame for each frame, which somehow discount the bias of this video dataset.</p>
+
+<h3>Flood Filling Algorithm</h3>
+<p>Next we apply `cv2.connectedComponentsWithStats()` to the frame. We drew bounding box around every bat that we detected:</p>
+<table>
+    <tr>
+        <th> Flood Filling </th>
+        <td><img src="./img/p2.2/flood_fill.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>Note that we still tend to miss some rather small bats possibly due to morphology operation or background subtraction.</p>
+
+<h3>Bat Wing Spread-or-not Detection</h3>
+<p>After observing the video, we figure that the bats tend to conform to a more "circular" shape when they fold their wings, and not that "circular" when they spread their wings.</p>
+<p>We implemented both circularity and aspect ratio, and decided a good threshold base on experiments to classify all the detected bats. Results are shown as follow:</p>
+
+<table>
+    <tr>
+        <th> Result Frame 1 </th>
+        <td><img src="./img/p2.2/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result Frame 2 </th>
+        <td><img src="./img/p2.2/result2.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We think that the detection result can be further improved by implement other object features such as orientation, second moments, compactness and so on. However due to time issue, we didn't had the time to implement that. Full processed video can be viewed at: </p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/PK7n5ROcc_E" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+<h1>Part 2.3 - Pedestrian Detection</h1>
+<div class="main-body">
+<hr>
+<h2> Problem Definition </h2>
+<p>In this task, we have a videos of pedestirans walking in a park. Similar to the previous task, the cameras are fixed, and the only things that are moving in the scene are the pedestrians. We are trying to come up with a segmentation algorithm that segmentates the pedestrian. On top of that, we are asked to count the total amount of pedestrians that appeared in the scene.</p>
+<p></p>
+<hr>
+<h2> Method and Implementation </h2>
+
+<h3>Subtracting Average Frame</h3>
+<p>Since the camera is fixed and the only objects that are moving in the scene are the objects that we are interested in capturing, we subtract each frame with the average frame.</p>
+
+<h3>Motion Difference Capturing</h3>
+<p>We also calculate for each frame the difference with the previous frame, so that we can keep track of the motion of the pedestiran.</p>
+<p>After getting the frame mask that subtracted the average frame and the frame mask that subtracted the previous frame, we performed bitwise or operation to merge these two masks. The result of the merged mask turns out to make the area of the pedestrians more significant in the frame.</p>
+<table>
+    <tr>
+        <th> Average Frame </th>
+        <td><img src="./img/p2.3/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting Average Frame </th>
+        <td><img src="./img/p2.3/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting Previous Frame </th>
+        <td><img src="./img/p2.3/motion_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Merged Frame Mask </th>
+        <td><img src="./img/p2.3/bimodal_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Merged Frame Mask (Thresholded) </th>
+        <td><img src="./img/p2.3/bimodal_diff_gs.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Flood Filling</h3>
+<p>Next we apply `cv2.connectedComponentsWithStats()` to the frame. We drew bounding boxes over every object we labeled:</p>
+
+<table>
+    <tr>
+        <th> Flood Fill</th>
+        <td><img src="./img/p2.3/flood_fill.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<h3>Pedestrian Detection</h3>
+<p> After observing the video, we figure that pedestrian's bounding are more "rectangular"-like. Hence we calculate the aspect ratio of the detected object and filtered out the objects that are too small.</p>
+<p>Narrowing down the candidate objects, we lastly resize our pedestrian templates to the size of the object of interest, and calculate the normalized correlation score of that object w.r.t. each of the templates. The template and results are as follow:</p>
+
+<table>
+    <!-- <tr>
+        <th> Template</th>
+        <td><img src="./img/p2.3/pedes_template1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Template 2</th>
+        <td><img src="./img/p2.3/pedes_template2.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Template 3</th>
+        <td><img src="./img/p2.3/pedes_template3.png" class="img-face"/></td>
+    </tr> -->
+    <tr>
+        <th> Result1</th>
+        <td><img src="./img/p2.3/result1.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Result2</th>
+        <td><img src="./img/p2.3/result2.png" class="img-face"/></td>
+    </tr>
+</table>
+
+<p>We uploaded the process video to Youtube: </p>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/DkFntopmbas" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h2> Discussion & Conclusions </h2>
+<p> In conclusion, I think this task lays a good foundation on how to combine multiple computer vision techniques to achieve object segmentation for different kinds of dataset. </p>
+
+<h2> Credits and Bibliography </h2>
+<p>OpenCV documentation</p>
+
+</div>
+</body>
+</html>
+
