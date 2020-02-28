@@ -287,7 +287,6 @@ def boundary_tracing(img, target_colors, boundary_draw_color, debug=False):
             if debug:
                 print("No find black pixel. Next move is c={}, b={}".format(c,b))
                 
-                
     # Draw Boundary with orig
     boundary_overlay_img = img.copy()
     for b_coord in B:
@@ -320,9 +319,9 @@ def skeletonize(img, gray_then_thres=False, debug=False):
     count = 0
     while True:
         eroded = cv2.morphologyEx(img, cv2.MORPH_ERODE, kernel)
-        temp = cv2.morphologyEx(eroded, cv2.MORPH_DILATE, kernel)
+        temp = cv2.morphologyEx(eroded, cv2.MORPH_DILATE, kernel) # Opening
         temp  = cv2.subtract(img, temp)        
-        skel = cv2.bitwise_or(skel, temp)
+        skel = cv2.bitwise_or(skel, temp)   # add onto skel
 
         img[:,:] = eroded[:,:]
         count += 1
@@ -410,7 +409,7 @@ def calc_moment_numbers(img, obj_color, boundary_img, debug=False):
 
     if debug:
         print("a={},b={},c={},h={},E_min={},E_max={}".format(a,b,c,h,E_min,E_max))
-        print("x_bar={}, y_bar={}".format(x_bar, y_bar))
+        print("x_bar={}, y_bar={}, perimeter={}".format(x_bar, y_bar, perimeter))
         print("Circularity={},orientation={}".format(circularity,orientation))
         print("Compactness={}, Ratio(area,perim)={}".format(compactness, ratio_area_perim))
     
