@@ -1,3 +1,9 @@
+""" Code for HW3 part 2 pianist hand detection
+
+Author: Shawn Lin (shawnlin@bu.edu)
+        Alex Wong (awong1@bu.edu)
+"""
+
 import os, sys
 import time
 import re
@@ -12,6 +18,7 @@ SCALE_FACTOR = 4
 FPS = 20
 DEBUG = False
 
+# Dummy callback function
 def nothing(x):
     pass
 
@@ -24,17 +31,23 @@ if DEBUG:
     cv2.createTrackbar("low_v", "Orig_video", 117, 255, nothing)  # 48
     cv2.createTrackbar("high_v", "Orig_video", 255, 255, nothing)    # 48
 
+# Parse frame ID from file name 
 def get_frame_id(fn):
     return int(re.sub(r"piano_(\d+)\.png", "\\1", fn))
 
+# Get an unused new color
 def get_next_new_color(usedColors):
     newColor = (np.random.choice(range(256), size=3))
     while np.any([np.all(uc == newColor) for uc in usedColors]): # if newColor matches any of the oldColors
         newColor = (np.random.choice(range(256), size=3))
     return newColor
 
-def get_average_video_frame(video_dir):
 
+def get_average_video_frame(video_dir):
+    """ Compute the average video frame.
+    
+        video_dir -- name of the video directory
+    """
     frames = []
     for _, _, file_list in os.walk(video_dir):
         file_list = sorted(file_list, key=lambda x: get_frame_id(x))
@@ -51,6 +64,13 @@ def get_average_video_frame(video_dir):
         return avg_frame
 
 def video_frame_iterator(video_dir, debug):
+    """ Parse and traverse all the files in the directory and return a generator
+        object of frames.
+    
+    Arguments:
+        video_dir -- directory name that contains all the frames
+        debug -- debug flag (freeze on first frame if set to True)
+    """
     for _, _, file_list in os.walk(video_dir):
         file_list = sorted(file_list, key=lambda x: get_frame_id(x))
 
@@ -68,7 +88,15 @@ def video_frame_iterator(video_dir, debug):
                 frame = cv2.resize(frame, new_shape)
                 yield (get_frame_id(fn), frame)
 
+# 
 def skin_masking(frame, debug):
+    """ Perform HSV thresholding for skin detection
+    
+    Arguments:
+        frame -- Input frame
+        debug -- debug flag. Show tracking bar for tuning HSV threshold when
+                 debug flag set to True.
+    """
     if debug:
         low_h = cv2.getTrackbarPos("low_h", "Orig_video")
         high_h = cv2.getTrackbarPos("high_h", "Orig_video")
@@ -86,6 +114,7 @@ def skin_masking(frame, debug):
     
     return frame
 
+# Filter unrelated binary object and return label map
 def get_label_map(frame_th, num_labels, labels, stats, centroids):
     label_map = np.zeros((frame_th.shape[0], frame_th.shape[1], 3), np.uint8)
 
@@ -104,7 +133,7 @@ def get_label_map(frame_th, num_labels, labels, stats, centroids):
         if i in ignore_obj_idx:
             continue
 
-        print("obj: %i, area: %.3f, centroid: " % (i, stat[4]), c)
+        # print("obj: %i, area: %.3f, centroid: " % (i, stat[4]), c)
         if c[0] >= top_right_ctrd[0] and c[1] <= top_right_ctrd[1]:
             top_right_ctrd = c
             top_right_idx = i
@@ -146,14 +175,15 @@ if __name__ == "__main__":
     cv2.waitKey(0)
     for frame_id, frame in video_frame_iterator("../CS585-PianoImages", DEBUG):
         
+        # Moving region to ROI_mask
         frame_diff = cv2.absdiff(frame, avg_frame)
-        # cv2.imshow("diff", frame_diff)
         frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
         _, roi_mask = cv2.threshold(frame_diff, 10, 255, cv2.THRESH_BINARY)
         
         if DEBUG:
             cv2.imshow("mask", roi_mask)
 
+        # Apply ROI mask on original frame
         frame_roi = cv2.bitwise_and(frame, frame, mask=roi_mask)
 
         # skin detection
@@ -177,6 +207,8 @@ if __name__ == "__main__":
 
         # Flood filling with object stats
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
+
+        # Object detection heuristics
         label_map, stats = get_label_map(frame_th, num_labels, labels, stats, centroids)
         
         # Draw hand bounding box

@@ -1,3 +1,9 @@
+""" Code for HW3 part 1 utility functions
+
+Author: Alex Wong (awong1@bu.edu)
+        Shawn Lin (shawnlin@bu.edu)
+"""
+
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt

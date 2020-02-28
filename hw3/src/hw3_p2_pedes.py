@@ -1,3 +1,9 @@
+""" Code for HW3 part 2 pedestrian detection
+
+Author: Shawn Lin (shawnlin@bu.edu)
+        Alex Wong (awong1@bu.edu)
+"""
+
 import os, sys
 import time
 import re
@@ -12,9 +18,11 @@ SCALE_FACTOR = 2
 FPS = 10
 DEBUG = False
 
+# Parse frame ID from file name 
 def get_frame_id(fn):
     return int(re.sub(r".*?frame_(\d+)\.jpg", "\\1", fn))
 
+# Get an unused new color
 def get_next_new_color(usedColors):
     newColor = (np.random.choice(range(256), size=3))
     while np.any([np.all(uc == newColor) for uc in usedColors]): # if newColor matches any of the oldColors
@@ -22,7 +30,10 @@ def get_next_new_color(usedColors):
     return newColor
 
 def get_average_video_frame(video_dir):
-
+    """ Compute the average video frame.
+    
+        video_dir -- name of the video directory
+    """
     frames = []
     for _, _, file_list in os.walk(video_dir):
         file_list = sorted(file_list, key=lambda x: get_frame_id(x))
@@ -39,6 +50,13 @@ def get_average_video_frame(video_dir):
         return avg_frame
 
 def video_frame_iterator(video_dir, debug):
+    """ Parse and traverse all the files in the directory and return a generator
+        object of frames.
+    
+    Arguments:
+        video_dir -- directory name that contains all the frames
+        debug -- debug flag (freeze on first frame if set to True)
+    """
     for _, _, file_list in os.walk(video_dir):
         file_list = sorted(file_list, key=lambda x: get_frame_id(x))
 
@@ -56,57 +74,6 @@ def video_frame_iterator(video_dir, debug):
                 frame = cv2.resize(frame, new_shape)
                 yield (get_frame_id(fn), frame)
 
-def get_label_map(frame_th, num_labels, labels, stats, centroids):
-    label_map = np.zeros((frame_th.shape[0], frame_th.shape[1], 3), np.uint8)
-
-    
-    stats = [(i, stat) for i, stat in enumerate(stats)]
-
-    # Remove small objects
-    ignore_obj_idx = {i: True for i, stat in stats if stat[4] < 150.}
-    ignore_obj_idx[0] = True # Ignore background object
-
-    # Top-right object filter
-    top_right_ctrd = [0, 480]
-    top_right_idx = -1
-    for c, (i, stat) in zip(centroids, stats):
-        
-        if i in ignore_obj_idx:
-            continue
-
-        print("obj: %i, area: %.3f, centroid: " % (i, stat[4]), c)
-        if c[0] >= top_right_ctrd[0] and c[1] <= top_right_ctrd[1]:
-            top_right_ctrd = c
-            top_right_idx = i
-
-    # Ignore top-rightest object condition:
-    cur_obj_cnt = len(stats) - len(ignore_obj_idx)
-    if cur_obj_cnt >= 3:
-        ignore_obj_idx[top_right_idx] = True
-    elif 1 < cur_obj_cnt < 3 and max([s[4] for i, s in stats if i != 0]) > 400.:
-        ignore_obj_idx[top_right_idx] = True
-
-    # Only focus on coloring the top 2 largest object
-    filtered_stats = list(filter(lambda x: x[0] not in ignore_obj_idx, stats))
-    sorted_stats = sorted(filtered_stats, key=lambda x: x[1][4], reverse=True)[:2]
-
-    print("sorted_filtered_stats:", sorted_stats)
-
-    color_map = [np.array([0, 0, 0])]
-    for _ in range(num_labels):
-        color = get_next_new_color(color_map)
-        color_map.append(color)
-
-    for i in range(labels.shape[0]):
-        for j in range(labels.shape[1]):
-            color_label = labels[i][j]
-            if color_label not in ignore_obj_idx:
-                color = color_map[color_label]
-                label_map[i][j] = color
-    
-    return label_map, sorted_stats
-
-
 if __name__ == "__main__":
 
 
@@ -117,17 +84,20 @@ if __name__ == "__main__":
     ]
     templates = []
 
+    # Preprocess templates
+    for i, fn in enumerate(template_names):
+        template = cv2.imread(fn, 0)
+        _, template = cv2.threshold(template, 1, 255, cv2.THRESH_BINARY)
+        templates.append(template)
+
+    # Get average frame
     avg_frame = get_average_video_frame("../CS585-PeopleImages/")
     if DEBUG:
         cv2.imshow("AvgFrame", avg_frame)
         print(avg_frame.shape)
 
+    # Keep track of previous frame
     prev_frame = np.zeros((avg_frame.shape[0], avg_frame.shape[1], 3), np.uint8)
-
-    for i, fn in enumerate(template_names):
-        template = cv2.imread(fn, 0)
-        _, template = cv2.threshold(template, 1, 255, cv2.THRESH_BINARY)
-        templates.append(template)
 
     for frame_id, frame in video_frame_iterator("../CS585-PeopleImages/", DEBUG):
 
@@ -147,6 +117,7 @@ if __name__ == "__main__":
         # Flood filling
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
 
+        # Pedestrian detection heuristics & BBox drawing
         person_cnt = 0
         for stat in stats[1:]:
             x, y, w, h = stat[:4]
@@ -173,8 +144,6 @@ if __name__ == "__main__":
             cv2.putText(frame, "%.2f" % (max_match_score), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=(255, 0, 0)) 
 
         cv2.putText(frame, "Detected %i person" % (person_cnt), (30, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color=(0, 255, 0)) 
-        # TODO: match each bounding box with pedestrian template
-        #  thresholding the confidence and render person_cnt on frame
 
         cv2.imshow("Orig_video", frame)
         cv2.imshow("bi-modal_diff_video", frame_th)

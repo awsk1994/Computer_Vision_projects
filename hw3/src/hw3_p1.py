@@ -1,3 +1,9 @@
+""" Code for HW3 part 1 binary object analysis
+
+Author: Alex Wong (awong1@bu.edu)
+        Shawn Lin (shawnlin@bu.edu)
+"""
+
 options = {
     'img_dir': './img/p1',
     'output_dir': './result',
