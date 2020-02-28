@@ -7,7 +7,7 @@ import os
 def get_unique_colors(img):
     return (np.unique(img.reshape(-1, img.shape[2]), axis=0))
 
-def getNextNewColor(usedColors):
+def getNextNewColor(usedColors):    
     newColor = (np.random.choice(range(256), size=3))
     while np.any([np.all(uc == newColor) for uc in usedColors]): # if newColor matches any of the oldColors
         newColor = (np.random.choice(range(256), size=3))
@@ -64,6 +64,7 @@ def flood_fill_multi(img, debug=False):
 
 def get_largest_components(img, usedColors, n=2):
     h = {}    
+    # Get count of all connected components
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
             color = img[i][j]
@@ -73,7 +74,7 @@ def get_largest_components(img, usedColors, n=2):
             else:
                 h[color_key] = 1
 
-    h_desc = [item[0] for item in sorted(h.items(), key = lambda kv:(kv[1], kv[0]))]
+    h_desc = [item[0] for item in sorted(h.items(), key = lambda kv:(kv[1], kv[0]))]    # filter
     h_desc_rev_filt = list(reversed(h_desc))[:n]
     top_n_components = [[int(ck) for ck in colorkey.split('_')] for colorkey in h_desc_rev_filt]
     return top_n_components
@@ -82,10 +83,11 @@ def filter_out_colors(img, colors, bgColor):
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
             curr_color = img[i][j]
-            if not np.any([np.all(c == curr_color) for c in colors]):
+            if not np.any([np.all(c == curr_color) for c in colors]):  #  if curr_color not in c ,then change current pixel to bgColor
                 img[i][j] = bgColor
     return img
 
+# Image preprocess
 def img_preprocess_0(img):
     kernel_10x10 = np.ones((10,10),np.uint8)
     img = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel_10x10) # Open. Fill in any holes.
@@ -166,7 +168,7 @@ def get_connected_components(img, preprocess_mode, n=2, debug=False, output_res=
 
 # ========== Boundary Tracing ========== 
 
-def get_next_cw_pos(center, curr): # TODO, p = center, b = current pos
+def get_next_cw_pos(center, curr): # Get next clockwise pixel based on curr and center.
 #     '''
 #     C is left of center. 
 #     [[...],
@@ -238,12 +240,11 @@ def get_next_cw_pos(center, curr): # TODO, p = center, b = current pos
         print("ERROR")        
 
 def boundary_tracing(img, target_colors, boundary_draw_color, debug=False):    
+    # p = current pixel, c = pixel in consideration, b = pixel that is used to enter into p, B = boundaries
     B = []
     ptColor = [255,255,255]
     start = None
     
-#     print("shape:", img.shape)
-
     #   From bottom to top and left to right scan the cells of T until a black pixel, s, of P is found.
     for j in range(img.shape[0]):
         if start is not None:
@@ -287,7 +288,6 @@ def boundary_tracing(img, target_colors, boundary_draw_color, debug=False):
             if debug:
                 print("No find black pixel. Next move is c={}, b={}".format(c,b))
                 
-                
     # Draw Boundary with orig
     boundary_overlay_img = img.copy()
     for b_coord in B:
@@ -305,32 +305,31 @@ def skeletonize(img, gray_then_thres=False, debug=False):
     """ OpenCV function to return a skeletonized version of img, a Mat object"""
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     if gray_then_thres:
-        _, img = cv2.threshold(img,250,255,cv2.THRESH_BINARY)
-    img = cv2.bitwise_not(img)
+        _, img = cv2.threshold(img,250,255,cv2.THRESH_BINARY)   # double threshold - 2 images
+    img = cv2.bitwise_not(img)  # flip
 
     #  hat tip to http://felix.abecassis.me/2011/09/opencv-morphological-skeleton/
-    ret,img = cv2.threshold(img,10,255,0)
+    ret,img = cv2.threshold(img,10,255,0)   # threshold
 
-    img = img.copy() # don't clobber original
+    img = img.copy()
     skel = img.copy()
 
-    skel[:,:] = 0
+    skel[:,:] = 0   # blank template
     kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
     
     count = 0
     while True:
         eroded = cv2.morphologyEx(img, cv2.MORPH_ERODE, kernel)
-        temp = cv2.morphologyEx(eroded, cv2.MORPH_DILATE, kernel)
-        temp  = cv2.subtract(img, temp)        
-        skel = cv2.bitwise_or(skel, temp)
+        temp = cv2.morphologyEx(eroded, cv2.MORPH_DILATE, kernel) # Opening
+        temp  = cv2.subtract(img, temp) # Get (next) outer layer skeleton
+        skel = cv2.bitwise_or(skel, temp)   # add onto skel
 
         img[:,:] = eroded[:,:]
         count += 1
         if debug:
             print("count=", count)
-        if cv2.countNonZero(img) == 0:
+        if cv2.countNonZero(img) == 0:  # until image is 0 (cannot erode anymore)
             break
-
 
     return skel
 
@@ -410,7 +409,7 @@ def calc_moment_numbers(img, obj_color, boundary_img, debug=False):
 
     if debug:
         print("a={},b={},c={},h={},E_min={},E_max={}".format(a,b,c,h,E_min,E_max))
-        print("x_bar={}, y_bar={}".format(x_bar, y_bar))
+        print("x_bar={}, y_bar={}, perimeter={}".format(x_bar, y_bar, perimeter))
         print("Circularity={},orientation={}".format(circularity,orientation))
         print("Compactness={}, Ratio(area,perim)={}".format(compactness, ratio_area_perim))
     
