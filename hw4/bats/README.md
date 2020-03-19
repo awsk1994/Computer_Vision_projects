@@ -7,7 +7,7 @@ Need to download BatImages, Localization and Segmentation data from Google Drive
  - https://drive.google.com/file/d/1RW6NuSvh11ia0BkonseHrJthPLCijERb/view?usp=sharing
  - https://drive.google.com/file/d/1ZVMDgPTWCN5mSkv1Ah9ssq20REFC2sVh/view?usp=sharing
 
-And, all the necessary libraries (shown on first few lines of code.py)
+And, install all the necessary libraries (shown on first few lines of code.py)
 
 # Run code:
  - python3 code.py
