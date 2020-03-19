@@ -228,8 +228,9 @@ class DataAssociation:
         return cur_frame_x_pred_labels, new_locs
 
 class AlphaBetaFilter:
-    def __init__(self, data, DEBUG=False):
+    def __init__(self, data, data_association_fn, DEBUG=False):
         self.data = data
+        self.data_association_fn = data_association_fn
         self.DEBUG = DEBUG
 
     """
@@ -412,7 +413,7 @@ class AlphaBetaFilter:
             # Step 2: Associate object across prev frame and current frame.
             if self.DEBUG:
                 print('frame', i, "| step 2 | Localization: ", self.data.localization[i])
-            cur_measurements, new_locs = DataAssociation.associate(x_pred, self.data.localization[i], v_pred)
+            cur_measurements, new_locs = self.data_association_fn(x_pred, self.data.localization[i], v_pred)
             if self.DEBUG:
                 print('frame', i, "| step 2 | cur_measurements: ",cur_measurements)
                 print('frame', i, "| step 2 | x_pred: ",x_pred)
@@ -456,7 +457,7 @@ class AlphaBetaFilter:
 
 def main():
     bat_data = DataLoader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
-    bat_tracker = AlphaBetaFilter(bat_data, DEBUG=False)
+    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, DEBUG=False, )
     bat_tracker.run()
 
 if __name__ == "__main__":

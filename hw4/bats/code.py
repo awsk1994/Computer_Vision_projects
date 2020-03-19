@@ -10,7 +10,6 @@ import os
 
 DEBUG = True
 
-
 # Helper
 def remove_from_array(lst, target):
     for idx in range(len(lst)):
@@ -46,7 +45,6 @@ class data_loader:
                     img=cv2.imread(filename)
                 self.images.append(img)
         
-
         if(not(localization_path)):
             return
         self.localization = [] # 2d array - Num images x num detections in image
@@ -160,30 +158,7 @@ class bat_tracking:
             current measurements associated with objects
     """
     def association(self, x_pred, frame_measurements, v_pred):
-        # to_delete = []
-        # measurement_taken = np.zeros((len(frame_measurements)))
-
-        # for i in range(len(x_pred)):                        # TODO: swap i and j?
-        #     minn = float('inf')
-        #     assigned = None
-        #     for j, meas in enumerate(frame_measurements):
-        #         # if(measurement_taken[j]):                   # TODO: potential problem
-        #         #     continue
-        #         dist = self.distance(x_pred[i][0],meas)     # distance from x_pred (prediction) to measurement
-        #         # if(dist<=self.gating and dist<minn):
-        #         if dist < minn:
-        #             minn = dist
-        #             assigned = j
-        #     if(assigned is not None):                        # TODO: if assigned
-        #         measurement_taken[assigned]=1
-        #         cur_frame_x_pred_labels.append([frame_measurements[assigned],x_pred[i][1]])
-        #     else:
-        #         to_delete.append(i)
-
-        # print("association | len(x_pred)={}, len(frame_measurements)={}, should expect len(cur_frame_x_pred_labels + new_locs)={}".format(len(x_pred), len(frame_measurements), max(len(x_pred), len(frame_measurements))))
- 
         cur_frame_x_pred_labels = []
-
 
         # For each localization point, compute the closest x_pred point. Assign to hash.
         x_pred_locs_hash = {} # {'i_key': [(j_key, dist),...]}, i_key = x_pred_key, j_keys = localization point
@@ -206,7 +181,6 @@ class bat_tracking:
             else:
                 x_pred_locs_hash[closest_x_pred_label] = [(j, min_dist, meas)]
 
-        # print("x_pred_locs_hash:", x_pred_locs_hash)
 
         # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
         zombie_locs = []
@@ -232,8 +206,6 @@ class bat_tracking:
                 cur_frame_x_pred_labels.append([loc_coord, x_pred_key])     # Update cur_frame_x_pred_labels
 
                 zombie_locs += remove_from_array(loc_idxs, min_idx) # Zombie locs
-
-        # print("cur_frame_x_pred_labels: ", cur_frame_x_pred_labels)
 
         # Zombie Locs are the new objects
         new_locs = []
@@ -561,7 +533,6 @@ class bat_tracking:
             # frame = self.draw(x_pos_compiled,color_hash,frame)
             this_frame = frame.copy()
             this_frame = self.draw_line(x_orig_prev, x_est, color_hash, this_frame)
-
             orig_frame = self.draw(x_pos_compiled, color_hash, orig_frame)
 
             while (True):
