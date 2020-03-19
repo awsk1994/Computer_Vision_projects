@@ -372,37 +372,18 @@ def calc_perimeter(boundary_img, boundary_color=[0,0,0]):
 
 def calc_second_moment(img, obj_color,x_bar, y_bar, area):
     a,b,c = 0,0,0
-    m_11, m_20, m_02 = 0,0,0
-
     for i in range(img.shape[1]): # x
         for j in range(img.shape[0]): # y
             if np.any(np.all(img[j][i] == obj_color)):
                 a += pow((i - x_bar), 2)
-                b += 2 * (i-x_bar) * (j-y_bar)
+                b += 2 * (i-x_bar) * (-1 * (j-y_bar))
                 c += pow((j - y_bar), 2)
-                m_20 += pow(i, 2)
-                m_02 += pow(j, 2)
-                m_11 += (i * j)
-
     h = pow(pow((a-c), 2) + pow(b,2), 0.5)
     
     E_min = (a+c)/2 - pow((a-c),2)/(2*h) - pow(b,2)/(2*h) if h>0 else (a+c)/2
     E_max = (a+c)/2 + pow((a-c),2)/(2*h) + pow(b,2)/(2*h) if h>0 else (a+c)/2
     circularity = E_min/E_max if (E_min > 0 and E_max > 0) else 0
-
-    # Orientation
-
-    # orientation = 0.5 * np.arctan((2*b)/(a+c)) if (a+c) > 0 else 0    # 1
-    # arctan_num = (2 * (b - x_bar * y_bar))    # 2
-    # arctan_denum = ((a - pow(x_bar, 2)) - (c - pow(y_bar, 2)))    # 2
-    # orientation = np.rad2deg(0.5 * np.arctan(arctan_num/arctan_denum))    #2
-
-    mu_bar_20 = (m_20/area) - pow(x_bar, 2)
-    mu_bar_02 = (m_02/area) - pow(y_bar, 2)
-    mu_bar_11 = (m_11/area) - (x_bar * y_bar)
-    arctan_in = (2 * mu_bar_11) / (mu_bar_20 - mu_bar_02)
-    orientation = np.rad2deg(0.5 * np.arctan(arctan_in))
-
+    orientation = np.rad2deg(0.5 * np.arctan(b/(a-c))) if (a-c) != 0 else 90
     return a,b,c,h,E_min,E_max,circularity,orientation
 
 # In: x,y + rgb channel image
