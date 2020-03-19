@@ -10,7 +10,7 @@ cv2.namedWindow("Orig_video")
 
 # Constants
 SCALE_FACTOR = 2
-FPS = 20
+FPS = 5
 DEBUG = False
 
 def nothing(x):
@@ -115,12 +115,12 @@ def get_label_map(frame_th, num_labels, labels, stats, centroids):
 
 if __name__ == "__main__":
 
-    avg_frame = get_average_video_frame("./CS585-BatImages/FalseColor/", false_color=True)
+    avg_frame = get_average_video_frame("../CS585-BatImages/FalseColor/", false_color=True)
     # avg_false_color_frame = get_average_false_color_frame("./CS585-BatImages/FalseColor/")
-    # if DEBUG:
-    cv2.imshow("AvgFrame", avg_frame)
-    cv2.waitKey(0)
-    for frame_id, frame in video_frame_iterator("./CS585-BatImages/FalseColor/", DEBUG):
+    if DEBUG:
+        cv2.imshow("AvgFrame", avg_frame)
+        cv2.waitKey(0)
+    for frame_id, frame in video_frame_iterator("../CS585-BatImages/FalseColor/", DEBUG):
 
 
         frame_lum = np.array(Image.fromarray(frame).convert('L'))
@@ -149,8 +149,8 @@ if __name__ == "__main__":
         #     cv2.putText(frame, "%.3f" % (circularity), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color) 
 
         # cv2.imshow("diff_video", frame_th)
-        cv2.imshow("Orig_video", frame_diff)
-        cv2.imshow("Lum_video", frame_lum)
+        cv2.imshow("Orig_video", frame)
+        cv2.imshow("Lum_video", frame_diff)
 
         if cv2.waitKey(25) & 0xFF == ord('q'):
             exit(0)
