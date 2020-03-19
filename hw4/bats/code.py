@@ -180,7 +180,7 @@ class bat_tracking:
         #     else:
         #         to_delete.append(i)
 
-        print("association | len(x_pred)={}, len(frame_measurements)={}, should expect len(cur_frame_x_pred_labels + new_locs)={}".format(len(x_pred), len(frame_measurements), max(len(x_pred), len(frame_measurements))))
+        # print("association | len(x_pred)={}, len(frame_measurements)={}, should expect len(cur_frame_x_pred_labels + new_locs)={}".format(len(x_pred), len(frame_measurements), max(len(x_pred), len(frame_measurements))))
  
         cur_frame_x_pred_labels = []
 
@@ -197,9 +197,6 @@ class bat_tracking:
 
                 dist = self.distance(x_pred_coord, meas)     # distance from x_pred (prediction) to localization point
                 if dist < min_dist:
-                    if x_pred_label == 61:
-                        print("c1 | x_pred_coord={}, loc_coord={}, dist={}".format(x_pred_coord, meas, dist))
-
                     min_dist = dist
                     closest_x_pred_label = x_pred_label
 
@@ -209,7 +206,7 @@ class bat_tracking:
             else:
                 x_pred_locs_hash[closest_x_pred_label] = [(j, min_dist, meas)]
 
-        print("x_pred_locs_hash:", x_pred_locs_hash)
+        # print("x_pred_locs_hash:", x_pred_locs_hash)
 
         # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
         zombie_locs = []
@@ -236,14 +233,12 @@ class bat_tracking:
 
                 zombie_locs += remove_from_array(loc_idxs, min_idx) # Zombie locs
 
-        print("cur_frame_x_pred_labels: ", cur_frame_x_pred_labels)
+        # print("cur_frame_x_pred_labels: ", cur_frame_x_pred_labels)
 
         # Zombie Locs are the new objects
         new_locs = []
         x_pred_labels_np = np.array([x_pred_data[1] for x_pred_data in x_pred])
         new_x_pred_label = np.max(x_pred_labels_np) + 1
-
-        print("c5 | x_pred_labels_np={}, new_x_pred_label={}".format(x_pred_labels_np, new_x_pred_label))
 
         for zombie_idx in range(len(zombie_locs)):
             loc_idx = zombie_locs[zombie_idx]
@@ -256,8 +251,7 @@ class bat_tracking:
             new_locs.append([loc_coord, new_x_pred_label])
             new_x_pred_label += 1
 
-        print("c4 | new_locs: ", new_locs)
-        print("association | len(cur_frame_x_pred_labels)={}, len(new_locs)={}".format(len(cur_frame_x_pred_labels), len(new_locs)))
+        # print("association | len(cur_frame_x_pred_labels)={}, len(new_locs)={}".format(len(cur_frame_x_pred_labels), len(new_locs)))
         return cur_frame_x_pred_labels, new_locs
 
         #     if(measurement_taken[i]==0):
@@ -342,8 +336,6 @@ class bat_tracking:
                 est_x_coord, est_y_coord = x_pred_coord[0] + alpha * residual[0], x_pred_coord[1] + alpha * residual[1]
                 est_coord = (est_x_coord, est_y_coord)
                 results.append([est_coord, x_pred_label])
-                if x_pred_label == 61:
-                    print("C2 | x_pred_label={}, residual={}, x_pred_coord={}, est_coord={}".format(x_pred_label, residual, x_pred_coord, est_coord))
 
             # # print("x_pred_coord", x_pred_coord)
             # for _, residual in enumerate(residuals):
@@ -357,12 +349,8 @@ class bat_tracking:
 
         for _, new_loc in enumerate(new_locs):
             loc_coord, loc_label = new_loc
-            if loc_label == 61:
-                print("c4 | loc_label={}, loc_coord={}".format(loc_label, loc_coord))
-
             results.append([loc_coord, loc_label])  # default 0 velocity.
 
-        print("c3 | x_est={}".format(results))
         return results
 
     """
@@ -448,7 +436,7 @@ class bat_tracking:
 
     def draw_line(self, x_from, x_to, color_hash, frame):
 
-        print("len(x_from)={}, len(x_to)={}".format(len(x_from), len(x_to)))
+        # print("len(x_from)={}, len(x_to)={}".format(len(x_from), len(x_to)))
 
         x_from_hash = {}
         for _, x_from_data in enumerate(x_from):
@@ -487,7 +475,7 @@ class bat_tracking:
             diff_x, diff_y = abs(x_to_coord[0] - x_from_coord[0]), abs(x_to_coord[1] - x_from_coord[1])
             max_diff_x, max_diff_y = max(max_diff_x, diff_x), max(max_diff_y, diff_y)
 
-        print("max_diff_x={}, max_diff_y={}".format(max_diff_x, max_diff_y))
+        # print("max_diff_x={}, max_diff_y={}".format(max_diff_x, max_diff_y))
             # if iter>50:
             #     break
         return frame
