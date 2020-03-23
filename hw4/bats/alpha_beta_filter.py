@@ -41,7 +41,7 @@ class utils:
                 if detection[1] in hash:
                     hash[detection[1]]['y'].append(detection[0][0])
                     hash[detection[1]]['x'].append(detection[0][1])
-                else:
+                else:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
                     hash[detection[1]]={'y':[detection[0][0]],'x':[detection[0][1]]}
 
         # iter = 0
@@ -59,9 +59,6 @@ class utils:
 
     @staticmethod
     def draw_line(x_from, x_to, color_hash, frame):
-
-        # print("len(x_from)={}, len(x_to)={}".format(len(x_from), len(x_to)))
-
         x_from_hash = {}
         for _, x_from_data in enumerate(x_from):
             x_from_coord, x_from_label = x_from_data
@@ -88,20 +85,9 @@ class utils:
 
             color = color_hash[key]
 
-            # rect_start_pt = (x_prev_hash_x[i], x_prev_hash_y[i])
-            # rect_end_pt = (x_prev_hash_x[i]+1, x_prev_hash_y[i]+1)
-            # frame = cv2.rectangle(frame, start_pt, end_pt, color, 4)  
-            # frame = cv2.circle(frame, (x_prev_hash_x[i],x_prev_hash_y[i]), 4, color, -1)
             frame = cv2.circle(frame, x_to_coord, 4, color, -1)
             frame = cv2.line(frame, x_to_coord, x_from_coord, color, 2)
             frame = cv2.putText(frame, str(key), x_from_coord, cv2.FONT_HERSHEY_COMPLEX, 1, color)
-
-            diff_x, diff_y = abs(x_to_coord[0] - x_from_coord[0]), abs(x_to_coord[1] - x_from_coord[1])
-            max_diff_x, max_diff_y = max(max_diff_x, diff_x), max(max_diff_y, diff_y)
-
-        # print("max_diff_x={}, max_diff_y={}".format(max_diff_x, max_diff_y))
-            # if iter>50:
-            #     break
         return frame
 
 # Load data (by appending, not yield)
@@ -228,9 +214,10 @@ class DataAssociation:
         return cur_frame_x_pred_labels, new_locs
 
 class AlphaBetaFilter:
-    def __init__(self, data, data_association_fn, DEBUG=False):
+    def __init__(self, data, data_association_fn, window_size = (600, 600), DEBUG=False):
         self.data = data
         self.data_association_fn = data_association_fn
+        self.window_size = window_size
         self.DEBUG = DEBUG
 
     """
@@ -383,8 +370,9 @@ class AlphaBetaFilter:
     Description : Function to show bat images with centroid data
     """
     def run(self):
-        cv2.namedWindow('image',cv2.WINDOW_NORMAL)
-        cv2.namedWindow('orig image',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('velocity',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('velocity_with_img',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('x_pos_compiled',cv2.WINDOW_NORMAL)
 
         # Default Initialization
         alpha = beta = 1
@@ -442,14 +430,26 @@ class AlphaBetaFilter:
             # Step 5
             if self.DEBUG:
                 print("Step 5 | Drawing")
-            velocity_frame, orig_frame = frame.copy(), frame.copy()
+            dimen = self.data.images[0].shape
+            velocity_frame = np.zeros((dimen[0], dimen[1], 3))
             velocity_frame = utils.draw_line(x_orig_prev, x_est, color_hash, velocity_frame)
-            orig_frame = utils.draw(x_pos_compiled, color_hash, orig_frame)
+
+            velocity_with_img_frame = frame.copy()
+            velocity_with_img_frame = utils.draw_line(x_orig_prev, x_est, color_hash, velocity_with_img_frame)
+
+            x_pos_compiled_frame = frame.copy()
+            x_pos_compiled_frame = utils.draw(x_pos_compiled, color_hash, x_pos_compiled_frame)
+
             while (True):
-                cv2.imshow("image", velocity_frame)
-                cv2.resizeWindow('image',600,600)
-                cv2.imshow("orig image",orig_frame)
-                cv2.resizeWindow('orig image',600,600)
+                cv2.imshow("velocity", velocity_frame)
+                cv2.resizeWindow('velocity', self.window_size[0], self.window_size[1])
+
+                cv2.imshow("velocity_with_img", velocity_with_img_frame)
+                cv2.resizeWindow('velocity_with_img', self.window_size[0], self.window_size[1])
+
+                cv2.imshow("x_pos_compiled",x_pos_compiled_frame)
+                cv2.resizeWindow('x_pos_compiled', self.window_size[0], self.window_size[1])
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):   # Press q to go to next frame
                     break
         cv2.destroyAllWindows()
@@ -457,7 +457,7 @@ class AlphaBetaFilter:
 
 def main():
     bat_data = DataLoader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
-    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, DEBUG=False, )
+    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=False)
     bat_tracker.run()
 
 if __name__ == "__main__":
