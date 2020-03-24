@@ -58,36 +58,43 @@ class utils:
         return frame
 
     @staticmethod
-    def draw_line(x_from, x_to, color_hash, frame):
-        x_from_hash = {}
-        for _, x_from_data in enumerate(x_from):
-            x_from_coord, x_from_label = x_from_data
-            if x_from_label in x_from_hash.keys():
-                x_from_hash[x_from_label]['y'] = (x_from_coord[0])
-                x_from_hash[x_from_label]['x'] = (x_from_coord[1])
-            else:
-                x_from_hash[x_from_label]={'y':x_from_coord[0],'x':x_from_coord[1]}
+    def draw_line(x_from, x_to, x_to2, color_hash, frame):
+        def convert_lst_to_hash(lst):
+            h = {}
+            for _, lst_data in enumerate(lst):
+                coord, label = lst_data
+                if label in h.keys():
+                    h[label]['y'] = (coord[0])
+                    h[label]['x'] = (coord[1])
+                else:
+                    h[label]={'y':coord[0],'x':coord[1]}
+            return h
 
-        x_to_hash = {}
-        for _, x_to_data in enumerate(x_to):
-            x_to_coord, x_to_label = x_to_data
-            if x_to_label in x_to_hash.keys():
-                x_to_hash[x_to_label]['y'] = x_to_coord[0]
-                x_to_hash[x_to_label]['x'] = x_to_coord[1]
-            else:
-                x_to_hash[x_to_label]={'y':x_to_coord[0],'x':x_to_coord[1]}
+        x_from_hash = convert_lst_to_hash(x_from)
+        x_to_hash = convert_lst_to_hash(x_to)
+        x_to2_hash = convert_lst_to_hash(x_to2)
 
         # iter = 0
-        max_diff_x, max_diff_y = 0, 0
         for key in x_to_hash.keys():
+            from_color = (0, 0, 255)    # red 
+            to_color = (0, 255, 0)         # green (to_color)
+            to2_color = (255, 0, 0)     # blue
+            line_color = (255, 255, 255)   # white
+
             x_to_coord = (x_to_hash[key]['x'], x_to_hash[key]['y'])
+            x_to2_coord = (x_to2_hash[key]['x'], x_to2_hash[key]['y']) if key in x_to2_hash.keys() else x_to_coord
             x_from_coord = (x_from_hash[key]['x'], x_from_hash[key]['y']) if key in x_from_hash.keys() else x_to_coord
 
-            color = color_hash[key]
+            frame = cv2.line(frame, x_from_coord, x_to_coord, line_color, 1)
+            frame = cv2.line(frame, x_to_coord, x_to2_coord, line_color, 1)
 
-            frame = cv2.circle(frame, x_to_coord, 4, color, -1)
-            frame = cv2.line(frame, x_to_coord, x_from_coord, color, 2)
-            frame = cv2.putText(frame, str(key), x_from_coord, cv2.FONT_HERSHEY_COMPLEX, 1, color)
+            frame = cv2.putText(frame, str(key), x_from_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+            frame = cv2.putText(frame, str(key), x_to_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+            frame = cv2.putText(frame, str(key), x_to2_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+
+            frame = cv2.circle(frame, x_to_coord, 2, to_color, -1)
+            frame = cv2.circle(frame, x_to2_coord, 2, to2_color, -1)
+            frame = cv2.circle(frame, x_from_coord, 2, from_color, -1)
         return frame
 
 # Load data (by appending, not yield)
@@ -111,6 +118,7 @@ class DataLoader:
         for _, _, file_list in os.walk(localization_path):
             for name in file_list:
                 filename = localization_path + "/" + name
+                print("Reading {}".format(filename))
                 loc_data_tuples= []
                 f = open(filename,'r')
                 # self.localization.append(f.read().splitlines())
@@ -123,9 +131,10 @@ class DataLoader:
                     # convert to tuple ints
                     # append to loc_data_tuples
                     # loc_data_tuples.append([int(y)-1,int(x)-1])
-                    loc_data_tuples.append([int(y)-1,int(x)-1])
+                    loc_data_tuples.append([int(y),int(x)])
                 self.localization.append(loc_data_tuples)
-
+        print("localization")
+        print(self.localization)
 
         if(not(segmentation_path)):
             return
@@ -210,8 +219,27 @@ class DataAssociation:
             new_locs.append([loc_coord, new_x_pred_label])
             new_x_pred_label += 1
 
+
+        # Get the removed objects
+        for (obj_coord, obj_id) in x_pred:
+            print("obj_id")
+            break
+
+        all_x_pred_ids = {obj_id: None for (obj_coord, obj_id) in x_pred}
+        cur_x_ids = [obj_id for (_, obj_id) in cur_frame_x_pred_labels]
+        new_loc_ids = [obj_id for (_, obj_id) in new_locs]
+        used_ids = cur_x_ids + new_loc_ids
+        # print("c1 | all_x_pred_ids={}".format(all_x_pred_ids))
+        # print("c1 | used_id={}".format(used_ids))
+
+        for used_id in used_ids:
+            if used_id in all_x_pred_ids.keys():
+                del all_x_pred_ids[used_id]
+        not_used_ids_h = all_x_pred_ids
+        # print("c1 | not_used_ids={}".format(not_used_ids))
+
         # print("association | len(cur_frame_x_pred_labels)={}, len(new_locs)={}".format(len(cur_frame_x_pred_labels), len(new_locs)))
-        return cur_frame_x_pred_labels, new_locs
+        return cur_frame_x_pred_labels, new_locs, not_used_ids_h
 
 class AlphaBetaFilter:
     def __init__(self, data, data_association_fn, window_size = (600, 600), DEBUG=False):
@@ -373,10 +401,12 @@ class AlphaBetaFilter:
         cv2.namedWindow('velocity',cv2.WINDOW_NORMAL)
         cv2.namedWindow('velocity_with_img',cv2.WINDOW_NORMAL)
         cv2.namedWindow('x_pos_compiled',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('localization',cv2.WINDOW_NORMAL)
 
         # Default Initialization
         alpha = beta = 1
-        x_prev, v_prev, x_pos_compiled = [], [], []
+        x_prev, v_prev, x_pos_compiled, cur_measurements = [], [], [], []
+        x_prev_actual = []
         color_hash = utils.create_color_hash()
         num_objects = len(self.data.localization[0])
 
@@ -384,11 +414,12 @@ class AlphaBetaFilter:
         for i in range(len(self.data.localization[0])):
             x,y = self.data.localization[0][i]
             x_prev.append([[x,y],i])
+            cur_measurements.append([[x,y],i])
             v_prev.append([[0,0],i])
 
         # Process each frame
         for i,frame in enumerate(self.data.images):
-            x_orig_prev = x_prev.copy()
+            x_orig_prev = cur_measurements.copy()
 
             # Step 1: Predict
             x_pred = self.get_x_pred(x_prev, v_prev)
@@ -401,7 +432,7 @@ class AlphaBetaFilter:
             # Step 2: Associate object across prev frame and current frame.
             if self.DEBUG:
                 print('frame', i, "| step 2 | Localization: ", self.data.localization[i])
-            cur_measurements, new_locs = self.data_association_fn(x_pred, self.data.localization[i], v_pred)
+            cur_measurements, new_locs, not_used_ids_h = self.data_association_fn(x_pred, self.data.localization[i], v_pred)
             if self.DEBUG:
                 print('frame', i, "| step 2 | cur_measurements: ",cur_measurements)
                 print('frame', i, "| step 2 | x_pred: ",x_pred)
@@ -420,25 +451,40 @@ class AlphaBetaFilter:
 
             # Step 4
             v_prev = v_est
-            x_prev = x_est
+            x_prev = x_est            
+            x_future = self.get_x_pred(x_prev, v_prev)
             x_pos_compiled.append(x_est)
-            if self.DEBUG:
-                print('Step 4 | Finished tracking')
-                print('Step 4 | Num objects so far',num_objects)
 
+            # Step 4.5: remove unused from x_pos_compiled
+            x_pos_compiled2 = []
+            for x_pos_compiled_per_frame in x_pos_compiled:
+                keep_x_pos_compiled_per_frame = []
+                for (x_pos_coord, x_pos_id) in x_pos_compiled_per_frame:                    
+                    if x_pos_id not in not_used_ids_h.keys():
+                        keep_x_pos_compiled_per_frame.append([x_pos_coord, x_pos_id])
+                x_pos_compiled2.append(keep_x_pos_compiled_per_frame)
+            x_pos_compiled = x_pos_compiled2
+            if self.DEBUG:
+                print('frame', i, ' | step 4 | x_pos_compiled: ',x_pos_compiled)
 
             # Step 5
             if self.DEBUG:
                 print("Step 5 | Drawing")
             dimen = self.data.images[0].shape
             velocity_frame = np.zeros((dimen[0], dimen[1], 3))
-            velocity_frame = utils.draw_line(x_orig_prev, x_est, color_hash, velocity_frame)
+            velocity_frame = utils.draw_line(x_orig_prev, cur_measurements, x_future, color_hash, velocity_frame)
 
             velocity_with_img_frame = frame.copy()
-            velocity_with_img_frame = utils.draw_line(x_orig_prev, x_est, color_hash, velocity_with_img_frame)
+            velocity_with_img_frame = utils.draw_line(x_orig_prev, cur_measurements, x_future, color_hash, velocity_with_img_frame)
 
             x_pos_compiled_frame = frame.copy()
             x_pos_compiled_frame = utils.draw(x_pos_compiled, color_hash, x_pos_compiled_frame)
+
+            localization_frame = frame.copy()
+            localization_frame = utils.draw([cur_measurements], color_hash, localization_frame)
+
+            # Step 6: Set x_orig_prev
+            x_orig_prev = cur_measurements
 
             while (True):
                 cv2.imshow("velocity", velocity_frame)
@@ -450,6 +496,9 @@ class AlphaBetaFilter:
                 cv2.imshow("x_pos_compiled",x_pos_compiled_frame)
                 cv2.resizeWindow('x_pos_compiled', self.window_size[0], self.window_size[1])
 
+                cv2.imshow("localization", localization_frame)
+                cv2.resizeWindow('localization', self.window_size[0], self.window_size[1])
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):   # Press q to go to next frame
                     break
         cv2.destroyAllWindows()
@@ -457,7 +506,9 @@ class AlphaBetaFilter:
 
 def main():
     bat_data = DataLoader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
-    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=False)
+    print("localization")
+    print(bat_data.localization[0])
+    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=True)
     bat_tracker.run()
 
 if __name__ == "__main__":
