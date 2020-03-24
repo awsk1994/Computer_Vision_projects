@@ -89,14 +89,23 @@ March 24, 2020
 <hr>
 <h2>Problem Definition</h2>
 <!-- TODO(R) -->
-<p>>>Type Here<<</p>
+<p>>>The current problem involves the implementation of tracking algorithms. 
+Specifically two datasets have been given, the bat dataset and the cell dataset. 
+Multiple objects are present in each frame and have to be tracked. 
+The assumptions we make are that the objects move only slightly between two frames. 
+The anticipated difficulties are implementing a reliable tracking algorithm and obtaining correct segmentation data.<<</p>
 
 <hr>
 <h2>Method and Implementation </h2>
 <h3>Multiple Object Tracking</h3>
 <h4>Alpha-Beta Filtering</h4>
 <!--TODO(R) - Implement an alpha-beta filter or using a third-party Kalman filter library and get good tracking results for simple situations (e.g. when objects move separately without occluding each other)-->
-<p>>>Type Here<<</p>
+<p>>>For the tracking part, an alpha-beta tracker was implemented. The alpha beta observer is a simplified form of a linear state observer that assumes an object can be described by a model with 2 internal states. This system accounts for both process noise and measurement noise and is a lower order approximation.
+
+The two internal states represented by the model are position and velocity. This tracker has a prediction phase where it predicts the position and velocity for this time step using knowledge from the previous time step. In then calculates the residual ( measurement for this time step - prediction) and uses it to update the position and the velocity weighed by the parameters  α,β  respectively.
+<<</p>
+<img src="./img/summary.png" class="img-face"/>
+<p>>>Figure 1 : Algorithm summary<<</p>
 
 <h4>Suboptimal Bipartite Matching Algorithm</h4>
 <!-- TODO(R) - Implement a greedy, suboptimal bipartite matching algorithm -->
@@ -112,7 +121,20 @@ What happens with your algorithm when objects touch and occlude each other, and 
 What happens when there are spurious detections that do not connect with other measurements in subsequent frames?
 
 -->
-<p>>>Type Here<<</p>
+<p>>>For our implementation the equations used were,
+<<</p>
+<img src="./img/equations.png" class="img-face"/>
+<p>>>Figure 2 : Update equations<<</p>
+<p>>>The values for α,β itself are hyperparameters. Typically, lower values of  α,β  reflect more belief on the prediction ( when there is more measurement noise ) and higher values reflect more belief on the measurement ( less measurement noise). 
+
+All this was the alpha beta tracker for a single object. While extending to multiple objects the main problem was data association. Also all of the above parameters had to re-written as matrices and vectors. So all the update operations became vector operations. We implemented the greedy matching algorithm where older objects with longer tracking history were matched first. The gating used was a circular gate of 50 px. This was a trade off between recall and precision. 
+
+The code was highly modularized and separate classes were created to perform the main tasks. The data_loader class was created to load all images, localization and segmentation maps. Different flags were provided to control what to load.
+
+The bat_tracking class performed the actual bat tracking. The show_frame_wise methods ran the tracking. Different other helper functions were created to perform the other tasks. The create_color_hash function created the color hash to plot the tracks of the different bats. The draw_line function drew the bat tracks on the image. The update_velocity function performed the velocity updates. The update_coords function performed the position updates. The subtract function was used to calculate the residual vector. The association function performed the greedy data association.  This was the function that was tricky in our opinion. The distance function calculated the euclidean distance between two points and the get_x_pred function predicted the object coordinates of the next time step.
+ 
+<<</p>
+
 
 <h3>Segmentation/Localization</h3>
 <h4>Cell Dataset</h4>
@@ -160,7 +182,7 @@ Show your tracking results on some portion of the sequence. In addition to showi
 <hr>
 <h2> Conclusion</h2>
 <!-- TODO(S) -->
-<p>>>Type Here<<</p>
+<p>>>Future work would definitely include using kalman filters and the optimal matching (hungarian) algorithm. MHT could also be tried.<<</p>
 
 <hr>
 <h2> Credits and Bibliography </h2>
