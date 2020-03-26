@@ -505,9 +505,7 @@ class AlphaBetaFilter:
 
 
 def main():
-    bat_data = DataLoader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
-    print("localization")
-    print(bat_data.localization[0])
+    bat_data = DataLoader(image_path='../data/bats/CS585-BatImages/Gray', localization_path='../data/bats/Localization', segmentation_path=None) #segmentation_path='./Segmentation'
     bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=True)
     bat_tracker.run()
 

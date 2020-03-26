@@ -130,7 +130,6 @@ class BatDataLoader:
             self.localization.append(cur_frame_locations)
 
 if __name__ == "__main__":
-    data = BatDataLoader("../bats/CS585-BatImages/FalseColor/", 2, DEBUG=False)
-    print(data.localization)
+    data = BatDataLoader("../data/bats/CS585-BatImages/FalseColor/", 2, DEBUG=False)
     cell_tracker = AlphaBetaFilter(data, data_association_fn=DataAssociation.associate, window_size=(600,600), DEBUG=True)
     cell_tracker.run()

@@ -125,7 +125,6 @@ class CellDataLoader:
             self.localization.append(cur_frame_locations)
 
 if __name__ == "__main__":
-    data = CellDataLoader("../cell/CS585-Cells/", 2, DEBUG=False)
-    print(data.localization)
+    data = CellDataLoader("../data/cell/CS585-Cells/", 2, DEBUG=False)
     cell_tracker = AlphaBetaFilter(data, data_association_fn=DataAssociation.associate, window_size=(600,600), DEBUG=True)
     cell_tracker.run()
