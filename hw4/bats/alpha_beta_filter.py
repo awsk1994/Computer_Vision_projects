@@ -1,5 +1,8 @@
 '''
-TODO: what is gating?
+TODO: 
+ - solve the confusing tracks thing
+ - remove tracks that are dead
+ - read Yifu's thing fully
 '''
 
 import cv2 as cv2
@@ -8,31 +11,94 @@ import glob
 import random
 import os
 
-DEBUG = True
+# Helper Class
+class utils:
+    @staticmethod
+    def remove_from_array(lst, target):
+        for idx in range(len(lst)):
+            if target == lst[idx]:
+                return lst[:idx] + lst[idx+1:]
+        return lst
 
-# Helper
-def remove_from_array(lst, target):
-    for idx in range(len(lst)):
-        if target == lst[idx]:
-            return lst[:idx] + lst[idx+1:]
-    return lst
+    @staticmethod
+    def create_color_hash(upper_range=1000):
+        # print('creating color hash')
+        color_hash ={}
+        for k in range(upper_range):
+            color_hash[k]=(random.randint(0,255),random.randint(0,255),random.randint(0,255))
+        # print('color hash ready')
+        return color_hash
 
-"""
-Description : A class to handle bulk image loading
-"""
-class data_loader:
-    """
-    Description : Loads images and stores it in the class object
+    @staticmethod
+    def distance(a,b):
+        return np.linalg.norm(np.array(a)-np.array(b))
 
-    Params
-    ------
-        image_path : string
-            path of image resources
-        localization_path : string
-            path to localization resources
-        gray : boolean
-            Explicitly read in gray scale
-    """
+    @staticmethod
+    def draw(x_pos_compiled,color_hash,frame):
+        hash= {}
+        for frame_num in range(len(x_pos_compiled)):
+            for detection in x_pos_compiled[frame_num]:
+                if detection[1] in hash:
+                    hash[detection[1]]['y'].append(detection[0][0])
+                    hash[detection[1]]['x'].append(detection[0][1])
+                else:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                    hash[detection[1]]={'y':[detection[0][0]],'x':[detection[0][1]]}
+
+        # iter = 0
+        for key in hash:
+            y= hash[key]['y']
+            x= hash[key]['x']
+            # iter = iter + 1
+            # print('key is',key)
+            for i in range(len(x)):
+                color = color_hash[key]
+                frame = cv2.circle(frame, (x[i],y[i]), 5, color, -1)
+            # if iter>50:
+            #     break
+        return frame
+
+    @staticmethod
+    def draw_line(x_from, x_to, x_to2, color_hash, frame):
+        def convert_lst_to_hash(lst):
+            h = {}
+            for _, lst_data in enumerate(lst):
+                coord, label = lst_data
+                if label in h.keys():
+                    h[label]['y'] = (coord[0])
+                    h[label]['x'] = (coord[1])
+                else:
+                    h[label]={'y':coord[0],'x':coord[1]}
+            return h
+
+        x_from_hash = convert_lst_to_hash(x_from)
+        x_to_hash = convert_lst_to_hash(x_to)
+        x_to2_hash = convert_lst_to_hash(x_to2)
+
+        # iter = 0
+        for key in x_to_hash.keys():
+            from_color = (0, 0, 255)    # red 
+            to_color = (0, 255, 0)         # green (to_color)
+            to2_color = (255, 0, 0)     # blue
+            line_color = (255, 255, 255)   # white
+
+            x_to_coord = (x_to_hash[key]['x'], x_to_hash[key]['y'])
+            x_to2_coord = (x_to2_hash[key]['x'], x_to2_hash[key]['y']) if key in x_to2_hash.keys() else x_to_coord
+            x_from_coord = (x_from_hash[key]['x'], x_from_hash[key]['y']) if key in x_from_hash.keys() else x_to_coord
+
+            frame = cv2.line(frame, x_from_coord, x_to_coord, line_color, 1)
+            frame = cv2.line(frame, x_to_coord, x_to2_coord, line_color, 1)
+
+            frame = cv2.putText(frame, str(key), x_from_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+            frame = cv2.putText(frame, str(key), x_to_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+            frame = cv2.putText(frame, str(key), x_to2_coord, cv2.FONT_HERSHEY_COMPLEX, 0.5, line_color)
+
+            frame = cv2.circle(frame, x_to_coord, 2, to_color, -1)
+            frame = cv2.circle(frame, x_to2_coord, 2, to2_color, -1)
+            frame = cv2.circle(frame, x_from_coord, 2, from_color, -1)
+        return frame
+
+# Load data (by appending, not yield)
+class DataLoader:
     def __init__(self,image_path,localization_path=None,segmentation_path=None,gray=False):
         self.images=[]  
         for _, _, file_list in os.walk(image_path):
@@ -52,6 +118,7 @@ class data_loader:
         for _, _, file_list in os.walk(localization_path):
             for name in file_list:
                 filename = localization_path + "/" + name
+                print("Reading {}".format(filename))
                 loc_data_tuples= []
                 f = open(filename,'r')
                 # self.localization.append(f.read().splitlines())
@@ -64,9 +131,10 @@ class data_loader:
                     # convert to tuple ints
                     # append to loc_data_tuples
                     # loc_data_tuples.append([int(y)-1,int(x)-1])
-                    loc_data_tuples.append([int(y)-1,int(x)-1])
+                    loc_data_tuples.append([int(y),int(x)])
                 self.localization.append(loc_data_tuples)
-
+        print("localization")
+        print(self.localization)
 
         if(not(segmentation_path)):
             return
@@ -82,82 +150,10 @@ class data_loader:
                     image.append([int(x) for x in row.split(',')])
                 self.segmentation.append(image)
 
-
-"""
-Description : Class to perform bat tracking
-"""
-class bat_tracking:
-
-    """
-    Description : Initializer for class
-    """
-    def __init__(self):
-        pass
-    
-    """
-    Description : predict next position of object
-
-    Params :
-    --------
-        x_prev : list
-            positions of objects in prev frame
-        v_prev: list
-            velocities of objects in prev frame  
-    Returns :
-    --------
-        x_pred : list
-            predictions of positions of objects in current frame
-    """
-    def get_x_pred(self,x_prev,v_prev):
-    # add only the measurements and not ids
-    # assuming ids are sorted and do not change
-        x_pred = []
-        for i in range(len(x_prev)):
-            x_pred.append([[x_prev[i][0][0]+v_prev[i][0][0],x_prev[i][0][1]+v_prev[i][0][1]],x_prev[i][1]])
-        return x_pred
-
-    """
-    Description : calculates euclidean distance between two points
-
-    Params :
-    --------
-        a : list
-            x,y coords of object a
-        b: list
-            x,y coords of object b   
-    Returns :
-    --------
-        dist : float
-            euclidian distance between 'a' and 'b'
-    """
-    def distance(self,a,b):
-        import math
-        # euclidien listance
-        return np.linalg.norm(np.array(a)-np.array(b))
-        # x_diff = a[0] - b[0]
-        # y_diff = a[1] - b[1]
-        # return math.pow(math.pow(x_diff, 2) + math.pow(y_diff, 2), 0.5)
-
-    """
-    Description : Performs the data association between new measurements and existing objects
-
-    Params :
-    --------
-        x_pred : list
-            predictions of object movements
-        frame_measurements : list
-            measurements of object movements
-        v_pred : list
-            predictions of object velocities
-        num_objects : int
-            counter to keep track of number of objects gloablly
-    
-    Returns :
-    --------
-        cur_measurements : list
-            current measurements associated with objects
-    """
-    def association(self, x_pred, frame_measurements, v_pred):
+# Associate object across frames
+class DataAssociation:
+    @staticmethod
+    def associate(x_pred, frame_measurements, v_pred):
         cur_frame_x_pred_labels = []
 
         # For each localization point, compute the closest x_pred point. Assign to hash.
@@ -170,7 +166,7 @@ class bat_tracking:
             for _, x_pred_data in enumerate(x_pred):
                 x_pred_coord, x_pred_label = x_pred_data
 
-                dist = self.distance(x_pred_coord, meas)     # distance from x_pred (prediction) to localization point
+                dist = utils.distance(x_pred_coord, meas)     # distance from x_pred (prediction) to localization point
                 if dist < min_dist:
                     min_dist = dist
                     closest_x_pred_label = x_pred_label
@@ -205,7 +201,7 @@ class bat_tracking:
                 loc_coord = frame_measurements[min_idx]
                 cur_frame_x_pred_labels.append([loc_coord, x_pred_key])     # Update cur_frame_x_pred_labels
 
-                zombie_locs += remove_from_array(loc_idxs, min_idx) # Zombie locs
+                zombie_locs += utils.remove_from_array(loc_idxs, min_idx) # Zombie locs
 
         # Zombie Locs are the new objects
         new_locs = []
@@ -223,21 +219,56 @@ class bat_tracking:
             new_locs.append([loc_coord, new_x_pred_label])
             new_x_pred_label += 1
 
-        # print("association | len(cur_frame_x_pred_labels)={}, len(new_locs)={}".format(len(cur_frame_x_pred_labels), len(new_locs)))
-        return cur_frame_x_pred_labels, new_locs
 
-        #     if(measurement_taken[i]==0):
-        #         x_pred.append([[0,0],num_objects+1]) # to account for new entries, kind of like prior
-        #         v_pred.append([[0,0],num_objects+1]) # to account for new entries, kind of like prior
-        #         cur_frame_x_pred_labels.append([frame_measurements[i],num_objects+1])
-        #         num_objects = num_objects + 1
-        
-        # # some x_pred may dissapear
-        # # delete elements indexed in to_delete
-        # for i in sorted(to_delete, reverse=True):
-        #     del x_pred[i]
-        #     del v_pred[i]
-        # return cur_frame_x_pred_labels
+        # Get the removed objects
+        for (obj_coord, obj_id) in x_pred:
+            print("obj_id")
+            break
+
+        all_x_pred_ids = {obj_id: None for (obj_coord, obj_id) in x_pred}
+        cur_x_ids = [obj_id for (_, obj_id) in cur_frame_x_pred_labels]
+        new_loc_ids = [obj_id for (_, obj_id) in new_locs]
+        used_ids = cur_x_ids + new_loc_ids
+        # print("c1 | all_x_pred_ids={}".format(all_x_pred_ids))
+        # print("c1 | used_id={}".format(used_ids))
+
+        for used_id in used_ids:
+            if used_id in all_x_pred_ids.keys():
+                del all_x_pred_ids[used_id]
+        not_used_ids_h = all_x_pred_ids
+        # print("c1 | not_used_ids={}".format(not_used_ids))
+
+        # print("association | len(cur_frame_x_pred_labels)={}, len(new_locs)={}".format(len(cur_frame_x_pred_labels), len(new_locs)))
+        return cur_frame_x_pred_labels, new_locs, not_used_ids_h
+
+class AlphaBetaFilter:
+    def __init__(self, data, data_association_fn, window_size = (600, 600), DEBUG=False):
+        self.data = data
+        self.data_association_fn = data_association_fn
+        self.window_size = window_size
+        self.DEBUG = DEBUG
+
+    """
+    Description : predict next position of object
+
+    Params :
+    --------
+        x_prev : list
+            positions of objects in prev frame
+        v_prev: list
+            velocities of objects in prev frame  
+    Returns :
+    --------
+        x_pred : list
+            predictions of positions of objects in current frame
+    """
+    def get_x_pred(self,x_prev,v_prev):
+    # add only the measurements and not ids
+    # assuming ids are sorted and do not change
+        x_pred = []
+        for i in range(len(x_prev)):
+            x_pred.append([[x_prev[i][0][0]+v_prev[i][0][0],x_prev[i][0][1]+v_prev[i][0][1]],x_prev[i][1]])
+        return x_pred
 
     """
     Description : Performs the subtraction between predictions and measurements
@@ -269,9 +300,6 @@ class bat_tracking:
                     y_residual = fm_coord[1] - x_pred_coord[1]
                     residual = (x_residual, y_residual)
                     res.append([residual, x_pred_label])
-                    if x_pred_label == 61:
-                        print("x_pred_label={}, fm_label={}, x_residual={}, y_residual={}".format(x_pred_label, fm_label, x_residual, y_residual))
-
         return res
 
     """
@@ -367,187 +395,121 @@ class bat_tracking:
         return results
 
     """
-    Description : Function to draw tracks on the bat dataset
-
-    Params :
-    --------
-        x_pos_comiled : list
-            contains all trackings seen so far
-        color_hash : dict
-            dict of keys and random colors
-        frame : numpy array
-            current frame
-    
-    Returns :
-    --------
-        frame : numpy array
-            frame with tracks drawn on it
-    """
-    def draw(self,x_pos_compiled,color_hash,frame):
-        hash= {}
-        for frame_num in range(len(x_pos_compiled)):
-            for detection in x_pos_compiled[frame_num]:
-                if detection[1] in hash:
-                    hash[detection[1]]['y'].append(detection[0][0])
-                    hash[detection[1]]['x'].append(detection[0][1])
-                else:
-                    hash[detection[1]]={'y':[detection[0][0]],'x':[detection[0][1]]}
-
-        # iter = 0
-        for key in hash:
-            y= hash[key]['y']
-            x= hash[key]['x']
-            # iter = iter + 1
-            # print('key is',key)
-            for i in range(len(x)):
-                color = color_hash[key]
-                frame = cv2.circle(frame, (x[i],y[i]), 5, color, -1)
-            # if iter>50:
-            #     break
-        return frame
-
-    def draw_line(self, x_from, x_to, color_hash, frame):
-
-        # print("len(x_from)={}, len(x_to)={}".format(len(x_from), len(x_to)))
-
-        x_from_hash = {}
-        for _, x_from_data in enumerate(x_from):
-            x_from_coord, x_from_label = x_from_data
-            if x_from_label in x_from_hash.keys():
-                x_from_hash[x_from_label]['y'] = (x_from_coord[0])
-                x_from_hash[x_from_label]['x'] = (x_from_coord[1])
-            else:
-                x_from_hash[x_from_label]={'y':x_from_coord[0],'x':x_from_coord[1]}
-
-        x_to_hash = {}
-        for _, x_to_data in enumerate(x_to):
-            x_to_coord, x_to_label = x_to_data
-            if x_to_label in x_to_hash.keys():
-                x_to_hash[x_to_label]['y'] = x_to_coord[0]
-                x_to_hash[x_to_label]['x'] = x_to_coord[1]
-            else:
-                x_to_hash[x_to_label]={'y':x_to_coord[0],'x':x_to_coord[1]}
-
-        # iter = 0
-        max_diff_x, max_diff_y = 0, 0
-        for key in x_to_hash.keys():
-            x_to_coord = (x_to_hash[key]['x'], x_to_hash[key]['y'])
-            x_from_coord = (x_from_hash[key]['x'], x_from_hash[key]['y']) if key in x_from_hash.keys() else x_to_coord
-
-            color = color_hash[key]
-
-            # rect_start_pt = (x_prev_hash_x[i], x_prev_hash_y[i])
-            # rect_end_pt = (x_prev_hash_x[i]+1, x_prev_hash_y[i]+1)
-            # frame = cv2.rectangle(frame, start_pt, end_pt, color, 4)  
-            # frame = cv2.circle(frame, (x_prev_hash_x[i],x_prev_hash_y[i]), 4, color, -1)
-            frame = cv2.circle(frame, x_to_coord, 4, color, -1)
-            frame = cv2.line(frame, x_to_coord, x_from_coord, color, 2)
-            frame = cv2.putText(frame, str(key), x_from_coord, cv2.FONT_HERSHEY_COMPLEX, 1, color)
-
-            diff_x, diff_y = abs(x_to_coord[0] - x_from_coord[0]), abs(x_to_coord[1] - x_from_coord[1])
-            max_diff_x, max_diff_y = max(max_diff_x, diff_x), max(max_diff_y, diff_y)
-
-        # print("max_diff_x={}, max_diff_y={}".format(max_diff_x, max_diff_y))
-            # if iter>50:
-            #     break
-        return frame
-
-    def create_color_hash(self, upper_range=1000):
-        # print('creating color hash')
-        color_hash ={}
-        for k in range(upper_range):
-            color_hash[k]=(random.randint(0,255),random.randint(0,255),random.randint(0,255))
-        # print('color hash ready')
-        return color_hash
-    """
     Description : Function to show bat images with centroid data
     """
-    def show_frame_wise(self):
-        data = data_loader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
-        print('Finished loading data')
-        cv2.namedWindow('image',cv2.WINDOW_NORMAL)
-        cv2.namedWindow('orig image',cv2.WINDOW_NORMAL)
+    def run(self):
+        cv2.namedWindow('velocity',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('velocity_with_img',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('x_pos_compiled',cv2.WINDOW_NORMAL)
+        cv2.namedWindow('localization',cv2.WINDOW_NORMAL)
 
         # Default Initialization
         alpha = beta = 1
-        x_prev, v_prev, x_pos_compiled = [], [], []
-        self.gating = float('inf') # no gating for first run, how will you define gating, assume gate = 5 px circle
-        color_hash = self.create_color_hash()
-        num_objects = len(data.localization[0])
+        x_prev, v_prev, x_pos_compiled, cur_measurements = [], [], [], []
+        x_prev_actual = []
+        color_hash = utils.create_color_hash()
+        num_objects = len(self.data.localization[0])
 
         # Initialize x_prev, v_prev
-        for i in range(len(data.localization[0])):
-            x,y = data.localization[0][i]
+        for i in range(len(self.data.localization[0])):
+            x,y = self.data.localization[0][i]
             x_prev.append([[x,y],i])
+            cur_measurements.append([[x,y],i])
             v_prev.append([[0,0],i])
 
         # Process each frame
-        for i,frame in enumerate(data.images):
-            orig_frame = frame.copy()
-
-            x_orig_prev = x_prev.copy()
+        for i,frame in enumerate(self.data.images):
+            x_orig_prev = cur_measurements.copy()
 
             # Step 1: Predict
             x_pred = self.get_x_pred(x_prev, v_prev)
             v_pred = v_prev
-            if DEBUG:
+            if self.DEBUG:
                 print('frame', i, '| Step 1 | x_pred after initial prediction',x_pred)
                 print('frame', i, '| Step 1 | v_pred after initial prediction',v_pred)
 
+
             # Step 2: Associate object across prev frame and current frame.
-            if DEBUG:
-                print('frame', i, "| step 2 | Localization: ", data.localization[i])
-            cur_measurements, new_locs = self.association(x_pred, data.localization[i], v_pred)
-            if DEBUG:
+            if self.DEBUG:
+                print('frame', i, "| step 2 | Localization: ", self.data.localization[i])
+            cur_measurements, new_locs, not_used_ids_h = self.data_association_fn(x_pred, self.data.localization[i], v_pred)
+            if self.DEBUG:
                 print('frame', i, "| step 2 | cur_measurements: ",cur_measurements)
                 print('frame', i, "| step 2 | x_pred: ",x_pred)
 
+
             # Step 3: Prediction Error Adjustment (Residual)
-            # the above function also changes x_pred, v_pred,num_objects
             res = self.subtract(cur_measurements, x_pred)
-            print("done substract")
-
             x_est = self.update_coord(x_pred, alpha, res, new_locs)
-            print("done update coord")
-
-            if(i!=0):  # neccesary because other wise velocity is overestimated in first frame
-                v_est = self.update_velocity(v_pred, beta, res, new_locs)
-            else:
-                v_est = v_pred
-            print("done update velocity")
-
-            if DEBUG:
+            first_frame = (i == 0)
+            v_est = self.update_velocity(v_pred, beta, res, new_locs) if not first_frame else v_pred # neccesary because other wise velocity is overestimated in first frame
+            if self.DEBUG:
                 print('frame', i, ' | step 3 | res',res)
                 print('frame', i, ' | step 3 | x_est',x_est)
                 print('frame', i, ' | step 3 | v_est',v_est)
 
+
+            # Step 4
             v_prev = v_est
-            x_prev = x_est
+            x_prev = x_est            
+            x_future = self.get_x_pred(x_prev, v_prev)
             x_pos_compiled.append(x_est)
 
-            if DEBUG:
-                print('Step 4 | Finished tracking')
-                print('Step 4 | Num objects so far',num_objects)
+            # Step 4.5: remove unused from x_pos_compiled
+            x_pos_compiled2 = []
+            for x_pos_compiled_per_frame in x_pos_compiled:
+                keep_x_pos_compiled_per_frame = []
+                for (x_pos_coord, x_pos_id) in x_pos_compiled_per_frame:                    
+                    if x_pos_id not in not_used_ids_h.keys():
+                        keep_x_pos_compiled_per_frame.append([x_pos_coord, x_pos_id])
+                x_pos_compiled2.append(keep_x_pos_compiled_per_frame)
+            x_pos_compiled = x_pos_compiled2
+            if self.DEBUG:
+                print('frame', i, ' | step 4 | x_pos_compiled: ',x_pos_compiled)
 
+            # Step 5
+            if self.DEBUG:
                 print("Step 5 | Drawing")
-            # frame = self.draw(x_pos_compiled,color_hash,frame)
-            this_frame = frame.copy()
-            this_frame = self.draw_line(x_orig_prev, x_est, color_hash, this_frame)
-            orig_frame = self.draw(x_pos_compiled, color_hash, orig_frame)
+            dimen = self.data.images[0].shape
+            velocity_frame = np.zeros((dimen[0], dimen[1], 3))
+            velocity_frame = utils.draw_line(x_orig_prev, cur_measurements, x_future, color_hash, velocity_frame)
+
+            velocity_with_img_frame = frame.copy()
+            velocity_with_img_frame = utils.draw_line(x_orig_prev, cur_measurements, x_future, color_hash, velocity_with_img_frame)
+
+            x_pos_compiled_frame = frame.copy()
+            x_pos_compiled_frame = utils.draw(x_pos_compiled, color_hash, x_pos_compiled_frame)
+
+            localization_frame = frame.copy()
+            localization_frame = utils.draw([cur_measurements], color_hash, localization_frame)
+
+            # Step 6: Set x_orig_prev
+            x_orig_prev = cur_measurements
 
             while (True):
-                cv2.imshow("image", this_frame)
-                cv2.resizeWindow('image',600,600)
-                cv2.imshow("orig image",orig_frame)
-                cv2.resizeWindow('orig image',600,600)
+                cv2.imshow("velocity", velocity_frame)
+                cv2.resizeWindow('velocity', self.window_size[0], self.window_size[1])
+
+                cv2.imshow("velocity_with_img", velocity_with_img_frame)
+                cv2.resizeWindow('velocity_with_img', self.window_size[0], self.window_size[1])
+
+                cv2.imshow("x_pos_compiled",x_pos_compiled_frame)
+                cv2.resizeWindow('x_pos_compiled', self.window_size[0], self.window_size[1])
+
+                cv2.imshow("localization", localization_frame)
+                cv2.resizeWindow('localization', self.window_size[0], self.window_size[1])
+
                 if cv2.waitKey(1) & 0xFF == ord('q'):   # Press q to go to next frame
                     break
-            self.gating = 50
         cv2.destroyAllWindows()
 
-bat_track = bat_tracking()
-bat_track.show_frame_wise()
 
-# to do - solve the confusing tracks thing
-# remove tracks that are dead
-# read Yifu's thing fully
+def main():
+    bat_data = DataLoader(image_path='./CS585-BatImages/Gray', localization_path='./Localization', segmentation_path=None) #segmentation_path='./Segmentation'
+    print("localization")
+    print(bat_data.localization[0])
+    bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=True)
+    bat_tracker.run()
+
+if __name__ == "__main__":
+    main()
