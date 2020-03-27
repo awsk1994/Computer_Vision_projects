@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 from alpha_beta_filter import utils, DataAssociation, AlphaBetaFilter
-
+from state import State
 
 # Helper functions
 def get_frame_id(fn):
@@ -107,7 +107,10 @@ class CellDataLoader:
                 n_obj += 1
 
                 # Insert object centroid; TODO: data structure..
-                cur_frame_locations.append([int(cent[1]), int(cent[0])])
+                state = State()
+                state.set_centroid(x, y)
+                state.set_bbox(w, h)
+                cur_frame_locations.append(state)
 
                 if DEBUG:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
@@ -126,5 +129,6 @@ class CellDataLoader:
 
 if __name__ == "__main__":
     data = CellDataLoader("../data/cell/CS585-Cells/", 2, DEBUG=False)
+    print(data.localization[0][0].to_array())
     cell_tracker = AlphaBetaFilter(data, data_association_fn=DataAssociation.associate, window_size=(600,600), DEBUG=True)
     cell_tracker.run()

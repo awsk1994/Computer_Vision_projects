@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 
 from alpha_beta_filter import utils, DataAssociation, AlphaBetaFilter
+from state import State
 
 
 # Helper functions
@@ -64,11 +65,19 @@ class BatDataLoader:
         self.process(bat_data_dir, scale_factor, DEBUG)
 
     def process(self, bat_data_dir, scale_factor, DEBUG):
+        
+        false_color_path = bat_data_dir+"FalseColor/"
+        grey_path = bat_data_dir+"Gray/"
+        avg_frame = get_average_video_frame(false_color_path, scale_factor, false_color=True)
 
-        avg_frame = get_average_video_frame(bat_data_dir, scale_factor, false_color=True)
+        for it1, it2 in zip(video_frame_iterator(false_color_path, False, scale_factor),
+                            video_frame_iterator(grey_path, False, scale_factor)):
 
-        for frame_id, frame in video_frame_iterator(bat_data_dir, False, scale_factor):
+            frame_id, frame = it1
+            _, frame_grey = it2
+
             print(frame_id)
+            self.images.append(frame_grey)
             # Remove background bias
             frame_gs = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frame_diff = cv2.absdiff(frame_gs, avg_frame)
@@ -95,7 +104,7 @@ class BatDataLoader:
             frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_CLOSE, (11, 11), iterations=1)
 
             frame_blur = cv2.GaussianBlur(frame_morph, (9, 9), 0)
-            _, frame_blur = cv2.threshold(frame_blur, 80, 255, cv2.THRESH_BINARY)
+            _, frame_blur = cv2.threshold(frame_blur, 60, 255, cv2.THRESH_BINARY)
 
 
             # Flood filling
@@ -105,31 +114,34 @@ class BatDataLoader:
             cur_frame_locations = []
             for stat, cent in zip(stats[1:], centroids[1:]):
                 x, y, w, h = stat[:4]
-                # if stat[4] < 3:
+                # if stat[4] < 2:
                     # continue
                 color = (0, 255, 0)
                 n_obj += 1
 
                 # Insert object centroid; TODO: data structure..
-                cur_frame_locations.append([int(cent[1]), int(cent[0])])
+                state = State()
+                state.set_centroid(x, y)
+                state.set_bbox(w, h)
+                cur_frame_locations.append(state)
 
                 if DEBUG:
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), color, 1)
-                    cv2.putText(frame, "%.3f" % (stat[4]), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color)
+                    cv2.rectangle(frame_grey, (x, y), (x+w, y+h), color, 1)
+                    cv2.putText(frame_grey, "%.3f" % (stat[4]), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color)
 
             if DEBUG:
-                cv2.putText(frame, "Detected %i bats" % (n_obj), (6, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 0, 0)) 
+                cv2.putText(frame_grey, "Detected %i bats" % (n_obj), (6, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 0, 0)) 
                 cv2.imshow("diff_vid", frame_diff)
                 cv2.imshow("Lum_video", frame_th)
-                cv2.imshow("Orig_video", frame)
+                cv2.imshow("Orig_video", frame_grey)
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     exit(0)
                 time.sleep(1./5)
 
-            self.images.append(frame)
             self.localization.append(cur_frame_locations)
 
 if __name__ == "__main__":
-    data = BatDataLoader("../data/bats/CS585-BatImages/FalseColor/", 2, DEBUG=False)
+    data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=False)
+    # print(data.localization[0][0].to_array())
     cell_tracker = AlphaBetaFilter(data, data_association_fn=DataAssociation.associate, window_size=(600,600), DEBUG=True)
     cell_tracker.run()
