@@ -121,7 +121,7 @@ class BatDataLoader:
 
                 # Insert object centroid; TODO: data structure..
                 state = State()
-                state.set_centroid(x, y)
+                state.set_centroid(int(cent[0]), int(cent[1]))
                 state.set_bbox(w, h)
                 cur_frame_locations.append(state)
 
