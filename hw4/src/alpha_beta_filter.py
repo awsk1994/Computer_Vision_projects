@@ -11,6 +11,8 @@ import glob
 import random
 import os
 
+from state import State
+
 # Helper Class
 class utils:
     @staticmethod
@@ -39,10 +41,10 @@ class utils:
         for frame_num in range(len(x_pos_compiled)):
             for detection in x_pos_compiled[frame_num]:
                 if detection[1] in hash:
-                    hash[detection[1]]['y'].append(detection[0][0])
-                    hash[detection[1]]['x'].append(detection[0][1])
+                    hash[detection[1]]['y'].append(detection[0][1])
+                    hash[detection[1]]['x'].append(detection[0][0])
                 else:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
-                    hash[detection[1]]={'y':[detection[0][0]],'x':[detection[0][1]]}
+                    hash[detection[1]]={'y':[detection[0][1]],'x':[detection[0][0]]}
 
         # iter = 0
         for key in hash:
@@ -52,7 +54,7 @@ class utils:
             # print('key is',key)
             for i in range(len(x)):
                 color = color_hash[key]
-                frame = cv2.circle(frame, (x[i],y[i]), 5, color, -1)
+                frame = cv2.circle(frame, (x[i],y[i]), 3, color, -1)
             # if iter>50:
             #     break
         return frame
@@ -64,10 +66,10 @@ class utils:
             for _, lst_data in enumerate(lst):
                 coord, label = lst_data
                 if label in h.keys():
-                    h[label]['y'] = (coord[0])
-                    h[label]['x'] = (coord[1])
+                    h[label]['y'] = (coord[1])
+                    h[label]['x'] = (coord[0])
                 else:
-                    h[label]={'y':coord[0],'x':coord[1]}
+                    h[label]={'y':coord[1],'x':coord[0]}
             return h
 
         x_from_hash = convert_lst_to_hash(x_from)
@@ -97,59 +99,6 @@ class utils:
             frame = cv2.circle(frame, x_from_coord, 2, from_color, -1)
         return frame
 
-# Load data (by appending, not yield)
-class DataLoader:
-    def __init__(self,image_path,localization_path=None,segmentation_path=None,gray=False):
-        self.images=[]  
-        for _, _, file_list in os.walk(image_path):
-            # for filename in glob.glob(image_path + '\*.ppm'):
-            for name in file_list:
-                filename = image_path + "/" + name
-                if(gray):
-                    img=cv2.imread(filename,0)
-                else:
-                    img=cv2.imread(filename)
-                self.images.append(img)
-        
-        if(not(localization_path)):
-            return
-        self.localization = [] # 2d array - Num images x num detections in image
-        # for filename in glob.glob(localization_path + '\*.txt'):
-        for _, _, file_list in os.walk(localization_path):
-            for name in file_list:
-                filename = localization_path + "/" + name
-                print("Reading {}".format(filename))
-                loc_data_tuples= []
-                f = open(filename,'r')
-                # self.localization.append(f.read().splitlines())
-                # i want a list of tuples
-                loc_data = f.read().splitlines()
-                for det in loc_data:
-                    # det is string
-                    # strip ','
-                    x,y = det.split(',')
-                    # convert to tuple ints
-                    # append to loc_data_tuples
-                    # loc_data_tuples.append([int(y)-1,int(x)-1])
-                    loc_data_tuples.append([int(y),int(x)])
-                self.localization.append(loc_data_tuples)
-        print("localization")
-        print(self.localization)
-
-        if(not(segmentation_path)):
-            return
-        self.segmentation = [] # 3d array - Num images x image 
-        # for filename in glob.glob(segmentation_path + '\*.txt'):
-        for _, _, file_list in os.walk(segmentation_path):
-            for name in file_list:
-                filename = segmentation_path + "/" + name
-                image = []
-                f = open(filename,'r')
-                string_image= f.read().splitlines()
-                for row in string_image:
-                    image.append([int(x) for x in row.split(',')])
-                self.segmentation.append(image)
-
 # Associate object across frames
 class DataAssociation:
     @staticmethod
@@ -166,7 +115,9 @@ class DataAssociation:
             for _, x_pred_data in enumerate(x_pred):
                 x_pred_coord, x_pred_label = x_pred_data
 
-                dist = utils.distance(x_pred_coord, meas)     # distance from x_pred (prediction) to localization point
+                meas_coord = [meas.get_centroid()[0], meas.get_centroid()[1]]
+                print("meas_coord", meas_coord)
+                dist = utils.distance(x_pred_coord, meas.get_centroid())     # distance from x_pred (prediction) to localization point
                 if dist < min_dist:
                     min_dist = dist
                     closest_x_pred_label = x_pred_label
@@ -185,8 +136,7 @@ class DataAssociation:
             if len(loc_datas) == 1:         # this x_pred only has 1 loc. Add to cur_frame_x_pred_labels
                 loc_idx = loc_datas[0][0]
                 # print("loc_idx={}".format(loc_idx))
-                loc_coord = frame_measurements[loc_idx]
-                cur_frame_x_pred_labels.append([loc_coord, x_pred_key])
+                cur_frame_x_pred_labels.append([frame_measurements[loc_idx].get_centroid(), x_pred_key])
             else:
                 loc_idxs = [loc_data[0] for loc_data in loc_datas]
                 min_idx = None
@@ -198,9 +148,8 @@ class DataAssociation:
                         min_idx = loc_idx
 
                 x_pred_locs_hash[x_pred_key] = [(min_idx, min_dist, None)]        # Update x_pred_locs_hash (not needed actually)
-                loc_coord = frame_measurements[min_idx]
-                cur_frame_x_pred_labels.append([loc_coord, x_pred_key])     # Update cur_frame_x_pred_labels
-
+                cur_frame_x_pred_labels.append([frame_measurements[min_idx].get_centroid(), x_pred_key])     # Update cur_frame_x_pred_labels
+                print("cur_frame_x_pred_labels", cur_frame_x_pred_labels)
                 zombie_locs += utils.remove_from_array(loc_idxs, min_idx) # Zombie locs
 
         # Zombie Locs are the new objects
@@ -210,7 +159,7 @@ class DataAssociation:
 
         for zombie_idx in range(len(zombie_locs)):
             loc_idx = zombie_locs[zombie_idx]
-            loc_coord = frame_measurements[loc_idx]
+            loc_coord = frame_measurements[loc_idx].get_centroid()
             new_x_pred_label = new_x_pred_label
 
             # x_pred.append([loc_coord, new_x_pred_label])
@@ -265,6 +214,8 @@ class AlphaBetaFilter:
     def get_x_pred(self,x_prev,v_prev):
     # add only the measurements and not ids
     # assuming ids are sorted and do not change
+        print("x_prev,", x_prev)
+        print("v_prev,", v_prev)
         x_pred = []
         for i in range(len(x_prev)):
             x_pred.append([[x_prev[i][0][0]+v_prev[i][0][0],x_prev[i][0][1]+v_prev[i][0][1]],x_prev[i][1]])
@@ -293,6 +244,7 @@ class AlphaBetaFilter:
             x_pred_coord, x_pred_label = x_pred
 
             for _, frame_measurement in enumerate(frame_measurements):
+                print("frame_measurement", frame_measurement)
                 fm_coord, fm_label = frame_measurement
 
                 if x_pred_label == fm_label:                    # TODO: Optimize
@@ -408,11 +360,11 @@ class AlphaBetaFilter:
         x_prev, v_prev, x_pos_compiled, cur_measurements = [], [], [], []
         x_prev_actual = []
         color_hash = utils.create_color_hash()
-        num_objects = len(self.data.localization[0])
 
         # Initialize x_prev, v_prev
-        for i in range(len(self.data.localization[0])):
-            x,y = self.data.localization[0][i]
+        for i in range(len(self.data.localization[0])): # first frame
+            print(self.data.localization[0][i])
+            x,y = self.data.localization[0][i].get_centroid()
             x_prev.append([[x,y],i])
             cur_measurements.append([[x,y],i])
             v_prev.append([[0,0],i])
