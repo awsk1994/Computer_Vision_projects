@@ -487,8 +487,8 @@ class AlphaBetaFilter:
                 print('frame', i, "| step 0 | Localization: ", len(locs))
                 print('frame', i, "| step 0 | x_prev: ", len(x_prev))
                 print('frame', i, "| step 0 | v_prev: ", len(v_prev))
-
             x_orig_prev = cur_measurements.copy()
+
 
             # Step 1: Predict
             x_pred = self.get_x_pred(x_prev, v_prev)
@@ -499,6 +499,7 @@ class AlphaBetaFilter:
                 # time1 = utils.current_milli_time()
                 # print('frame', i, '| Step 1 | time taken:', time1 - time0)
 
+
             # Step 2: Associate object across prev frame and current frame.
             cur_measurements, new_locs, not_used_ids_h, half_dead_h = self.data_association_fn(x_pred, self.data.localization[i], v_pred, half_dead_h)
             if self.DEBUG:
@@ -508,6 +509,7 @@ class AlphaBetaFilter:
                 # time2 = utils.current_milli_time()
                 # print('frame', i, '| Step 2 | time taken:', time2 - time1)
                 print('frame', i, '| Step 2 | new_locs', new_locs)
+
 
             # Step 3: Prediction Error Adjustment (Residual)
             res = self.subtract(cur_measurements, x_pred)
@@ -528,17 +530,19 @@ class AlphaBetaFilter:
             x_future = self.get_x_pred(x_prev, v_prev)
             x_pos_compiled.append(x_est)
 
-            # # Step 4.5: remove unused from x_pos_compiled
-            # x_pos_compiled2 = []
-            # for x_pos_compiled_per_frame in x_pos_compiled:
-            #     keep_x_pos_compiled_per_frame = []
-            #     for (x_pos_coord, x_pos_id) in x_pos_compiled_per_frame:                    
-            #         if x_pos_id not in not_used_ids_h.keys():
-            #             keep_x_pos_compiled_per_frame.append([x_pos_coord, x_pos_id])
-            #     x_pos_compiled2.append(keep_x_pos_compiled_per_frame)
-            # x_pos_compiled = x_pos_compiled2
-            # if self.DEBUG:
-            #     print('frame', i, ' | step 4 | x_pos_compiled: ',x_pos_compiled)
+
+            # Step 4.5: remove unused from x_pos_compiled
+            x_pos_compiled2 = []
+            for x_pos_compiled_per_frame in x_pos_compiled:
+                keep_x_pos_compiled_per_frame = []
+                for (x_pos_coord, x_pos_id) in x_pos_compiled_per_frame:                    
+                    if x_pos_id not in not_used_ids_h.keys():
+                        keep_x_pos_compiled_per_frame.append([x_pos_coord, x_pos_id])
+                x_pos_compiled2.append(keep_x_pos_compiled_per_frame)
+            x_pos_compiled = x_pos_compiled2
+            if self.DEBUG:
+                print('frame', i, ' | step 4 | x_pos_compiled: ',x_pos_compiled)
+
 
             # Step 5
             if self.DEBUG:
