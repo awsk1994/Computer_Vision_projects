@@ -27,6 +27,10 @@ class utils:
     def current_milli_time():
         return int(round(time.time() * 1000))
 
+    @staticmethod 
+    def get_ids(lst):
+        return [label_id for (_, label_id) in lst]
+
     @staticmethod
     def remove_from_array(lst, target):
         for idx in range(len(lst)):
@@ -169,15 +173,30 @@ class DataLoader:
 
 # Associate object across frames
 class DataAssociation:
+
+
+
     @staticmethod
     def associate(x_pred, frame_measurements, v_pred, half_dead_h):
-        cur_frame_x_pred_labels = []
-        half_dead_arr = [[hd_item.coord, hd_id] for (hd_id,hd_item) in half_dead_h.items()]
-        new_locs = []
-
         # For each localization point, compute the closest x_pred point. Assign to hash.
-        c0_time = utils.current_milli_time()
+        x_pred_locs_hash =  DataAssociation.matching(frame_measurements, x_pred, half_dead_h)
 
+        # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
+        cur_frame_x_pred_labels, new_locs, zombie_loc_ids = DataAssociation.restrict_to_1_to_1_mapping(x_pred_locs_hash, half_dead_h, frame_measurements)
+
+        # convert zombies into new bojects
+        new_object_id = DataAssociation.get_new_object_id(half_dead_h, x_pred)
+        new_locs = DataAssociation.convert_zombie_into_new_object(new_locs, zombie_loc_ids, frame_measurements, new_object_id)
+
+        # Update Half Dead Hash
+        used_ids, not_used_ids_h = DataAssociation.calc_unused_ids(x_pred, cur_frame_x_pred_labels, new_locs)
+        half_dead_h = DataAssociation.update_half_dead_hash(half_dead_h, used_ids, not_used_ids_h)
+
+        return cur_frame_x_pred_labels, new_locs, not_used_ids_h, half_dead_h
+
+    @staticmethod
+    def matching(frame_measurements, x_pred, half_dead_h):
+        half_dead_arr = [[hd_item.coord, hd_id] for (hd_id,hd_item) in half_dead_h.items()]
         x_pred_locs_hash = {} # {'i_key': [(j_key, dist),...]}, i_key = x_pred_key, j_keys = localization point
         for j, meas in enumerate(frame_measurements):       # Start with localization point
             min_dist = float('inf')
@@ -199,8 +218,12 @@ class DataAssociation:
                 x_pred_locs_hash[closest_x_pred_label].append((j, min_dist, meas.get_centroid()))
             else:
                 x_pred_locs_hash[closest_x_pred_label] = [(j, min_dist, meas.get_centroid())]
+        return x_pred_locs_hash
 
-        # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
+    @staticmethod
+    def restrict_to_1_to_1_mapping(x_pred_locs_hash, half_dead_h, frame_measurements):
+        cur_frame_x_pred_labels = []
+        new_locs = []
         zombie_loc_ids = []
         for x_pred_key in x_pred_locs_hash.keys():
             loc_datas = x_pred_locs_hash[x_pred_key]
@@ -227,29 +250,41 @@ class DataAssociation:
                 else:
                     cur_frame_x_pred_labels.append(loc_item)     # Update cur_frame_x_pred_labels
                 zombie_loc_ids += utils.remove_from_array(loc_idxs, min_idx) # Zombie locs
+        return cur_frame_x_pred_labels, new_locs, zombie_loc_ids
 
-        # Convert Zombie Locs into new objects
-        half_dead_ids = [hd_id for (hd_id,hd_item) in half_dead_h.items()]
-        x_pred_ids = [x_pred_data[1] for x_pred_data in x_pred]
-        x_pred_labels_np = np.array(x_pred_ids + half_dead_ids)
-        new_x_pred_label = np.max(x_pred_labels_np) + 1
+    @staticmethod
+    def get_new_object_id(half_dead_h, x_pred):
+        half_dead_ids = [hd_id for (hd_id, _) in half_dead_h.items()]
+        x_pred_ids = utils.get_ids(x_pred)
+        obj_labels_np = np.array(x_pred_ids + half_dead_ids)
+        new_obj_label = np.max(obj_labels_np) + 1
+        return new_obj_label
 
+    @staticmethod
+    def convert_zombie_into_new_object(new_locs, zombie_loc_ids, frame_measurements, new_obj_label):
         for zombie_idx in range(len(zombie_loc_ids)):
             loc_idx = zombie_loc_ids[zombie_idx]
             loc_coord = frame_measurements[loc_idx].get_centroid()
-            new_x_pred_label = new_x_pred_label
-            new_locs.append([loc_coord, new_x_pred_label])
-            new_x_pred_label += 1
+            new_locs.append([loc_coord, new_obj_label])
+            new_obj_label += 1
 
-        # Get all not used ids (object id not used)
+        return new_locs
+
+    @staticmethod
+    # Get all not used ids (object id not used)
+    def calc_unused_ids(x_pred, cur_frame_x_pred_labels, new_locs):
         all_x_pred_ids = {obj_id: obj_coord for (obj_coord, obj_id) in x_pred}
-        get_ids = lambda lst: [label_id for (_, label_id) in lst]   
-        used_ids = get_ids(cur_frame_x_pred_labels) + get_ids(new_locs)
+        used_ids = utils.get_ids(cur_frame_x_pred_labels) + utils.get_ids(new_locs)
+        
         for used_id in used_ids:
             if used_id in all_x_pred_ids.keys():
                 del all_x_pred_ids[used_id]
         not_used_ids_h = all_x_pred_ids
 
+        return used_ids, not_used_ids_h
+
+    @staticmethod
+    def update_half_dead_hash(half_dead_h, used_ids, not_used_ids_h):
         # Update HalfDead Hash
         # Remove HalfDead that are used
         for used_id in used_ids:
@@ -268,7 +303,7 @@ class DataAssociation:
             if hd_item.livesLeft <= 0:
                 del half_dead_h[hd_id]
 
-        return cur_frame_x_pred_labels, new_locs, not_used_ids_h, half_dead_h
+        return half_dead_h
 
 class AlphaBetaFilter:
     def __init__(self, data, data_association_fn, window_size = (600, 600), DEBUG=False):
