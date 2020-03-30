@@ -101,14 +101,14 @@ class BatDataLoader:
             
             frame_morph = cv2.morphologyEx(frame_th, cv2.MORPH_CLOSE, (7, 7), iterations=1)
             frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_OPEN, (7, 7), iterations=1)
-            frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_CLOSE, (11, 11), iterations=1)
+            # frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_CLOSE, (7, 7), iterations=1)
 
-            frame_blur = cv2.GaussianBlur(frame_morph, (9, 9), 0)
-            _, frame_blur = cv2.threshold(frame_blur, 60, 255, cv2.THRESH_BINARY)
+            frame_blur = cv2.GaussianBlur(frame_morph, (5, 5), 0)
+            _, frame_blur = cv2.threshold(frame_blur, 30, 255, cv2.THRESH_BINARY)
 
 
             # Flood filling
-            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_th, 4, cv2.CV_32S)
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_blur, 4, cv2.CV_32S)
             
             n_obj = 0
             cur_frame_locations = []
@@ -132,7 +132,7 @@ class BatDataLoader:
             if DEBUG:
                 cv2.putText(frame_grey, "Detected %i bats" % (n_obj), (6, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 0, 0)) 
                 cv2.imshow("diff_vid", frame_diff)
-                cv2.imshow("Lum_video", frame_th)
+                cv2.imshow("Lum_video", frame_blur)
                 cv2.imshow("Orig_video", frame_grey)
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     exit(0)
@@ -141,7 +141,7 @@ class BatDataLoader:
             self.localization.append(cur_frame_locations)
 
 if __name__ == "__main__":
-    data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=False)
+    data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=True)
     # print(data.localization[0][0].to_array())
     cell_tracker = AlphaBetaFilter(data, data_association_fn=DataAssociation.associate, window_size=(600,600), DEBUG=True)
     cell_tracker.run()
