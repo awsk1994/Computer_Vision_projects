@@ -175,9 +175,12 @@ class KalmanFilter:
 
 
 if __name__ == "__main__":
-    data = CellDataLoader("../data/cell/CS585-Cells/", 2, DEBUG=False)
-    # data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=False)
-    kf = KalmanFilter()
+    # data = CellDataLoader("../data/cell/CS585-Cells/", 2, DEBUG=False)
+    # kf = KalmanFilter()
+
+    data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=False)
+    kf = KalmanFilter(G_thresh=30)
+
     X = kf.convert_to_state(data.localization[0])
     X_n, P = kf.predict(X)
     # print("X_pred", X)
@@ -212,11 +215,11 @@ if __name__ == "__main__":
         cv2.imshow("object_graph", frame_debug)
 
         # Data Association phase: 
-        # allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
-        # print("Allignment", allignment)
-        # print("iso_X", len(isolated_x), isolated_x)
-        # print("iso_Z", len(isolated_z), isolated_z)
-        allignment, isolated_z, isolated_x = gnnsf.hungarian_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        print("Allignment", allignment)
+        print("iso_X", len(isolated_x), isolated_x)
+        print("iso_Z", len(isolated_z), isolated_z)
+        # allignment, isolated_z, isolated_x = gnnsf.hungarian_associate(object_graph, X_pred, Z, deleted_obj_ids)
         
 
         frame_obs = frame.copy()
@@ -308,14 +311,15 @@ if __name__ == "__main__":
             frame = cv2.circle(frame, get_coord(X_pred[obj_id]), 1, (0,255,0), -1) #green
             frame = cv2.circle(frame, get_coord(Z[obj_id]), 1, (0,255,255), -1) # yellow
             frame = cv2.circle(frame, get_coord(X_n[obj_id]), 1, (0,0,255), -1) # red
-            frame = cv2.putText(frame, str("(%.2f, %.2f)" % (X_n[obj_id][2], X_n[obj_id][3])), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.2, (255,0,0))
-            print("Residual: %i" % obj_id, Y[obj_id])
+            # frame = cv2.putText(frame, str("(%.2f, %.2f)" % (X_n[obj_id][2], X_n[obj_id][3])), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.2, (255,0,0))
+            # print("Residual: %i" % obj_id, Y[obj_id])
             cv2.line(frame, get_coord(X[obj_id]), get_coord(Z[obj_id]), (255, 0, 0), 1)
 
-            frame = cv2.putText(frame, str(obj_id), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
             # frame = cv2.putText(frame, str(obj_id), get_coord(X_pred[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
             # frame = cv2.putText(frame, str(obj_id), get_coord(X_n[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
             frame = cv2.putText(frame, str(obj_id), get_coord(Z[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
+            frame = cv2.putText(frame, str(obj_id), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
+
 
         print("P", P_n)
         print("K", kf.K)

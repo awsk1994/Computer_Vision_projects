@@ -42,28 +42,10 @@ class GNNSF:
                 id_mapping.append(obj_id)
         assert(len(id_mapping) == nX)
 
-        inv_id_mapping = {obj_id: i for i, obj_id in enumerate(id_mapping)}
+        # inv_id_mapping = {obj_id: i for i, obj_id in enumerate(id_mapping)}
 
         # Create edge cost
         edge_cost = 1000000. * np.ones((nZ, nX))
-        # for observer_id, linkages in enumerate(object_graph):
-        #     for object_id, linkage in enumerate(linkages):
-        #         if deleted_obj_ids is not None and object_id in deleted_obj_ids:
-        #             continue
-        #         if linkage == 0.0:
-        #             continue
-
-        #         if self.cost_method == "euclidean":
-        #             score = self.euclidean_score(Z[observer_id], X_pred[object_id], inv)
-        #         elif self.cost_method == "iou":
-        #             score = self.iou_score(Z[observer_id], X_pred[object_id])
-        #         elif self.cost_method == "template_match":
-        #             score = self.template_match(Z[observer_id], X_pred[object_id])
-                
-        #         edge_cost[observer_id][object_id] = score
-
-        # return edge_cost
-
         for observer_id in range(len(object_graph)):
             for col_id, obj_id in enumerate(id_mapping):
                 linkage = object_graph[observer_id][obj_id]
@@ -74,8 +56,6 @@ class GNNSF:
                     score = self.euclidean_score(Z[observer_id], X_pred[obj_id], True)
                 edge_cost[observer_id][col_id] = score
         return edge_cost, id_mapping
-                
-
 
     def greedy_associate(self, object_graph, X_pred, Z, deleted_obj_ids=None):
         """
@@ -154,7 +134,7 @@ class GNNSF:
     def hungarian_associate(self, object_graph, X_pred, Z, deleted_obj_ids=None):
 
         edge_cost, id_mapping = self.get_edge_cost_matrix_2(object_graph, X_pred, Z, deleted_obj_ids)
-        print("Edgecost", edge_cost.shape, edge_cost)
+        # print("Edgecost", edge_cost.shape, edge_cost)
         row_ind, col_ind = linear_sum_assignment(edge_cost)
 
         # Handle default distance situation:
@@ -178,11 +158,6 @@ class GNNSF:
                 used_obj_id[nX] = True
                 nX += 1
             else:
-                # if used_row_id[i] in deleted_obj_ids:
-                #     isolated_z[i] = True
-                #     assignment.append(nX)
-                #     used_obj_id[nX] = True
-                #     nX += 1
                 assignment.append(used_row_id[i])
                 used_obj_id[used_row_id[i]] = True
         
