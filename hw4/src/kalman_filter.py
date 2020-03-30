@@ -215,11 +215,11 @@ if __name__ == "__main__":
         cv2.imshow("object_graph", frame_debug)
 
         # Data Association phase: 
-        allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
-        print("Allignment", allignment)
-        print("iso_X", len(isolated_x), isolated_x)
-        print("iso_Z", len(isolated_z), isolated_z)
-        # allignment, isolated_z, isolated_x = gnnsf.hungarian_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        # allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        # print("Allignment", allignment)
+        # print("iso_X", len(isolated_x), isolated_x)
+        # print("iso_Z", len(isolated_z), isolated_z)
+        allignment, isolated_z, isolated_x = gnnsf.hungarian_associate(object_graph, X_pred, Z, deleted_obj_ids)
         
 
         frame_obs = frame.copy()

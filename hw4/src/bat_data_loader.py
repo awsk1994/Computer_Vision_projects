@@ -77,7 +77,6 @@ class BatDataLoader:
             _, frame_grey = it2
 
             print(frame_id)
-            self.images.append(frame_grey)
             # Remove background bias
             frame_gs = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frame_diff = cv2.absdiff(frame_gs, avg_frame)
@@ -95,16 +94,16 @@ class BatDataLoader:
 
             # Thresholding
             # frame_th = cv2.adaptiveThreshold(frame_diff, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 33, 5)
-            _, frame_th = cv2.threshold(frame_roi, 30, 255, cv2.THRESH_BINARY)
-            # frame_blur = cv2.GaussianBlur(frame_th, (3, 3), 0)
-            # _, frame_th = cv2.threshold(frame_blur, 50, 255, cv2.THRESH_BINARY)
+            # _, frame_th = cv2.threshold(frame_roi, 40, 255, cv2.THRESH_BINARY)
+            frame_blur = cv2.GaussianBlur(frame_roi, (5, 5), 0)
+            _, frame_th = cv2.threshold(frame_blur, 30, 255, cv2.THRESH_BINARY)
             
-            frame_morph = cv2.morphologyEx(frame_th, cv2.MORPH_CLOSE, (7, 7), iterations=1)
-            frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_OPEN, (7, 7), iterations=1)
+            frame_morph = cv2.morphologyEx(frame_th, cv2.MORPH_CLOSE, (15, 15), iterations=2)
+            frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_OPEN, (15, 15), iterations=2)
             # frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_CLOSE, (7, 7), iterations=1)
 
-            frame_blur = cv2.GaussianBlur(frame_morph, (5, 5), 0)
-            _, frame_blur = cv2.threshold(frame_blur, 30, 255, cv2.THRESH_BINARY)
+            frame_blur = cv2.GaussianBlur(frame_morph, (7, 7), 0)
+            _, frame_blur = cv2.threshold(frame_blur, 25, 255, cv2.THRESH_BINARY)
 
 
             # Flood filling
@@ -136,8 +135,8 @@ class BatDataLoader:
                 cv2.imshow("Orig_video", frame_grey)
                 if cv2.waitKey(25) & 0xFF == ord('q'):
                     exit(0)
-                time.sleep(1./5)
-
+                time.sleep(1./10)
+            self.images.append(frame_grey)
             self.localization.append(cur_frame_locations)
 
 if __name__ == "__main__":

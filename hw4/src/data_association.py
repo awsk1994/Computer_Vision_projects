@@ -138,10 +138,12 @@ class GNNSF:
         row_ind, col_ind = linear_sum_assignment(edge_cost)
 
         # Handle default distance situation:
+        to_del = []
         for i, (row_id, col_id) in enumerate(zip(row_ind, col_ind)):
             if edge_cost[row_id][col_id] >= 999999.:
-                row_ind = np.delete(row_ind, i)
-                col_ind = np.delete(col_ind, i) #col_ind.delete(i)
+                to_del.append(i)
+        row_ind = np.delete(row_ind, to_del)
+        col_ind = np.delete(col_ind, to_del) #col_ind.delete(i)
 
         col_ind = [id_mapping[i] for i in col_ind]
 
