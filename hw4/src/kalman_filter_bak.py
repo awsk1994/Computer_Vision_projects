@@ -13,7 +13,7 @@ def get_coord(x):
     return (int(x[0]), int(x[1]))
 
 class KalmanFilter:
-    def __init__(self, P=10, G_thresh=50): # cell:200, bat:50?
+    def __init__(self, M=500, P=0.1, G_thresh=float("inf")):
         """
         Kalman filter implementation
 
@@ -32,15 +32,16 @@ class KalmanFilter:
         self.Z: Measurement (nx4) n: measured object count (t+1)
         
         """
+        self.M = M
         self.G_thresh = G_thresh
 
         # self.X = None
-        self.P = P * np.eye(4)
+        self.P = P * np.eye(8)
         self.F = self.init_kinematic_matrix()
-        self.Q = np.random.normal(0.0, 0.01, (4, 4)) # std_dev = 0.01
-        self.H = np.bmat([np.eye(2), np.zeros((2, 2))])#np.zeros((4, 8))
-        self.R = np.diag([50, 50])
-        self.K = np.zeros((4, 2))
+        self.Q = np.random.normal(0.0, 0.01, (8, 8)) # std_dev = 0.01
+        self.H = np.bmat([np.eye(4), np.zeros((4, 4))])#np.zeros((4, 8))
+        self.R = np.diag([10, 10, 0.1, 0.1])
+        self.K = np.zeros((8, 4))
 
         print("Init F:")
         print(self.F)
@@ -70,8 +71,8 @@ class KalmanFilter:
         return np.array(X_pred), np.array(P_pred)
         
     def init_kinematic_matrix(self):
-        F = np.eye(4)
-        F[:2, -2:] = np.eye(2)
+        F = np.eye(8)
+        F[:4, -4:] = np.eye(4)
         return F
 
     def get_pred_state(self):
@@ -90,10 +91,9 @@ class KalmanFilter:
         
         print("Current number of objects in frame: %i" % len(localization))
 
-        X = np.zeros((len(localization), 4)) # default value for nan: 
+        X = np.zeros((len(localization), 8)) # default value for nan: 
         for i, state in enumerate(localization):
-            arr = state.to_array()
-            X[i, :] = np.concatenate([arr[:2], arr[4:6]])
+            X[i, :] = state.to_array()
         return X
 
     def convert_to_measurement(self, localization):
@@ -106,9 +106,9 @@ class KalmanFilter:
 
         print("Current number of objects in frame: %i" % len(localization))
 
-        Z = np.zeros((len(localization), 2)) # default value for nan: 
+        Z = np.zeros((len(localization), 4)) # default value for nan: 
         for i, state in enumerate(localization):
-            Z[i, :] = state.to_array()[:2]
+            Z[i, :] = state.to_array()[:4]
         return Z
 
     def gating(self, X_pred, P_pred, Z):
@@ -124,7 +124,7 @@ class KalmanFilter:
             confidence = np.diag(Y @ np.linalg.pinv(self.S) @ Y.T) # ellipsoidal confidence score
             conf_list.append("%.2f" % confidence.min())
             # print(confidence.min())
-            G = ((confidence < self.G_thresh) & (confidence > 0.0)).astype(np.float32) # G:(1 x nX)
+            G = (confidence < self.G_thresh).astype(np.float32) # G:(1 x nX)
             object_graph[i, :] = G
             # object_edge_cost[i, :] = G * confidence
         print("confidence:", ", ".join(conf_list))  
@@ -138,14 +138,9 @@ class KalmanFilter:
     def update(self, X_pred, P_pred, Y):
 
         self.K = P_pred @ self.H.T @ np.linalg.pinv(self.S)
-        print("Update", X_pred.shape, Y.shape, self.K.T.shape)
+
         X = X_pred + Y @ self.K.T
-        # P = (np.identity(4) - self.K @ self.H) @ P_pred
-        # P = P_pred - self.K @ self.H @ P_pred
-        #(I-KH)P(I-KH)' + KRK'
-        I = np.identity(4)
-        I_KH =  (I - self.K @ self.H)
-        P = I_KH @ P_pred @ I_KH.T + self.K @ self.R @ self.K.T
+        P = (np.identity(8) - self.K @ self.H) @ P_pred
 
         return np.array(X), np.array(P)
 
@@ -173,26 +168,23 @@ if __name__ == "__main__":
     # data = BatDataLoader("../data/bats/CS585-BatImages/", 2, DEBUG=False)
     kf = KalmanFilter()
     X = kf.convert_to_state(data.localization[0])
+    print("X_0", X)
     X_n, P = kf.predict(X)
-    # print("X_pred", X)
-    # print("P_pred", P)
+    print("X_pred", X)
+    print("P_pred", P)
+    # nX = len(data.localization[0])
 
     gnnsf = GNNSF()
+    frame_init = data.images[0].copy()
+    for obj_id, x in enumerate(X):
+        cv2.circle(frame_init, get_coord(x), 2, (255,0,0), -1) #or
+        cv2.putText(frame_init, str(obj_id), get_coord(x), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
+    cv2.imshow("Init", frame_init)
+    cv2.waitKey(0)
 
-    Z_prev = None
 
-    deleted_obj_ids = {}
-    for frame_id, (loc_data, frame) in enumerate(zip(data.localization[1:], data.images[1:])):
-
-        if frame_id == 0:
-            frame_init = data.images[0].copy()            
-            for obj_id, x in enumerate(X):
-                cv2.circle(frame_init, get_coord(x), 2, (255,0,0), -1) #or
-                cv2.putText(frame_init, str(obj_id), get_coord(x), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
-                cv2.imshow("Init", frame_init)
-        else:
-            cv2.imshow("Prev", data.images[frame_id-1])
-
+    GATING = True
+    for loc_data, frame in zip(data.localization[1:], data.images[1:]):
         # Prediction phase
         X_pred, P_pred = kf.predict(X, P)
         Z = kf.convert_to_measurement(loc_data) # (Mx4)
@@ -201,69 +193,41 @@ if __name__ == "__main__":
         #               Set G_thresh to float('inf') if we don't want this step
         object_graph = kf.gating(X_pred, P_pred, Z)
 
-        frame_debug = frame.copy()
-        kf.visualize_object_graph(frame_debug, object_graph, X_pred, Z)
-        cv2.imshow("object_graph", frame_debug)
+        # kf.visualize_object_graph(frame, object_graph, X_pred, Z)
+        # cv2.imshow("object_graph", frame)     
 
         # Data Association phase: 
-        allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z)
         print("Allignment", allignment)
 
-        frame_obs = frame.copy()
-        for obj_id, z in enumerate(Z):
-            cv2.circle(frame_obs, get_coord(z), 2, (255,0,0), -1) #or
-            cv2.putText(frame_obs, str(obj_id), get_coord(z), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
-
         # Managing object creation/deletion
-
-        Y_mask = np.ones((len(allignment), Z.shape[1]))
-
         if len(isolated_z) > 0: # observed new object in current frame
             print("Detected %i new objects!" % len(isolated_z))
             # create dummy rows for X (new detections)
             X_pred = np.concatenate([X_pred, np.zeros((len(isolated_z), X_pred.shape[1]))])
-            X = np.concatenate([X, np.zeros((len(isolated_z), X.shape[1]))])
-            for x_id in isolated_z.keys():
-                print("Concating:", np.bmat([Z[x_id], [0,0]]))
-                X_pred[allignment[x_id], :] = np.bmat([Z[x_id], [0,0]])
-                X[allignment[x_id], :] = np.bmat([Z[x_id], [0,0]])
-                Y_mask[allignment[x_id], :] = np.zeros((1, Y_mask.shape[1]))
-        print(X.shape, X_pred.shape)
         
+        Y_mask = np.ones((len(allignment), Z.shape[1]))
         if len(isolated_x) > 0:
             print("Missing %i objects!" % len(isolated_x))
             # TODO: create HalfDead class for the missing object
             #       delete it when miss detecting for K frames
-            for x_id in isolated_x.keys():
-                deleted_obj_ids[x_id] = True
 
             # create zero-mask for residual when missing detections
             for x_id in isolated_x.keys():
                 Y_mask[x_id, :] = np.zeros((1, Y_mask.shape[1]))
 
-
         # Re-alligning Z matrix
         nZ, nX = len(Z), len(X_pred)
         print("nZ", nZ)
         print("nX", nX)
-        print("iso_X", len(isolated_x), isolated_x)
-        print("iso_Z", len(isolated_z), isolated_z)
+        print("iso_X", len(isolated_x))
+        print("iso_Z", len(isolated_z))
         if nZ >= len(allignment):
-            indexes = sorted(list(enumerate(allignment)), key=lambda x: x[1])
-            indexes = [k for k, v in indexes]
-            print(indexes)
-            print("Before reorg", Z[:])
-            Z = Z[indexes, :]
-            print("After reorg", Z[:])
+            Z = Z[allignment, :]
         else:
             # create dummy rows for Z (miss detections)
             Z = np.concatenate([Z, np.zeros((len(allignment)-nZ, Z.shape[1]))])
-
-            # indexes = np.arange(len(allignment))[allignment]
-            indexes = sorted(list(enumerate(allignment)), key=lambda x: x[1])
-            indexes = [k for k, v in indexes]
-            Z = Z[indexes, :]
-
+            Z = Z[allignment, :]
 
         # Calculate residuals
         Y = kf.calc_residual(X_pred, Z)
@@ -271,12 +235,20 @@ if __name__ == "__main__":
         print("Residual", Y.shape)
         print("X_pred", X_pred.shape)
         print("Z", Z.shape)
-        print("deleted", deleted_obj_ids)
+
 
         # Update:
         X_n, P_n = kf.update(X_pred, P_pred, Y)
         
+        
         # Visualization
+
+        # Observation
+        frame_obs = frame.copy()
+        for obj_id, z in enumerate(Z):
+            cv2.circle(frame_obs, get_coord(z), 2, (255,0,0), -1) #or
+            cv2.putText(frame_obs, str(obj_id), get_coord(z), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
+
         drawn_id = {}
         # show creation
         for observer_id in isolated_z.keys():
@@ -286,53 +258,34 @@ if __name__ == "__main__":
             drawn_id[obj_id] = True
 
         # show missing
-        # for obj_id in isolated_x.keys():
-        #     frame = cv2.circle(frame, get_coord(X_n[obj_id]), 1, (255,102,178), -1) #pur
-        #     frame = cv2.putText(frame, str(obj_id), get_coord(X_n[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
-        #     drawn_id[obj_id] = True
+        for obj_id in isolated_x.keys():
+            frame = cv2.circle(frame, get_coord(X_n[obj_id]), 1, (255,102,178), -1) #pur
+            frame = cv2.putText(frame, str(obj_id), get_coord(X_n[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
+            drawn_id[obj_id] = True
 
         # Tracking
-        for obj_id in range(len(Z)):
+        for obj_id in range(min(len(X), len(X_n))):
             if obj_id in drawn_id:
-                continue
-            if obj_id in deleted_obj_ids:
                 continue
             
             frame = cv2.circle(frame, get_coord(X[obj_id]), 1, (255,0,0), -1) #blue
             frame = cv2.circle(frame, get_coord(X_pred[obj_id]), 1, (0,255,0), -1) #green
-            frame = cv2.circle(frame, get_coord(Z[obj_id]), 1, (0,255,255), -1) # yellow
             frame = cv2.circle(frame, get_coord(X_n[obj_id]), 1, (0,0,255), -1) # red
-            frame = cv2.putText(frame, str("(%.2f, %.2f)" % (X_n[obj_id][2], X_n[obj_id][3])), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.2, (255,0,0))
-            print("Residual: %i" % obj_id, Y[obj_id])
-            cv2.line(frame, get_coord(X[obj_id]), get_coord(Z[obj_id]), (255, 0, 0), 1)
 
             frame = cv2.putText(frame, str(obj_id), get_coord(X[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
-            # frame = cv2.putText(frame, str(obj_id), get_coord(X_pred[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
-            # frame = cv2.putText(frame, str(obj_id), get_coord(X_n[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
-            frame = cv2.putText(frame, str(obj_id), get_coord(Z[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,0,0))
+            frame = cv2.putText(frame, str(obj_id), get_coord(X_pred[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
+            frame = cv2.putText(frame, str(obj_id), get_coord(X_n[obj_id]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255,255,255))
 
-        print("P", P_n)
-        print("K", kf.K)
 
-        
-
-        X, P = X_n, P_n
-
-        # Verify velocity estimation
-        if Z_prev is not None:
-            obj_cnt = min(len(Z), len(Z_prev), len(X_pred))
-            velocity = Z[:obj_cnt] - Z_prev[:obj_cnt]
-            for obj_id in range(obj_cnt):
-                print(obj_id, X_pred[obj_id, -2:], velocity[obj_id])
-            Z_prev = Z
-        else:
-            Z_prev = Z
 
         while True:
             cv2.imshow("Tracking", frame)
             cv2.imshow("Measure", frame_obs)
-            # cv2.imshow("Measure_after", frame_obs_after)
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 break
             # if cv2.waitKey(25) & 0xFF == ord('n'):
             #     break
+
+        X, P = X_n, P_n
+
+        # input()

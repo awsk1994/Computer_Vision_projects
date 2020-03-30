@@ -8,13 +8,7 @@ class GNNSF:
     def __init__(self, cost_method="euclidean"):
         self.cost_method = cost_method
 
-    def greedy_associate(self, object_graph, X_pred, Z, deleted_obj_ids=None):
-        """
-        object_graph: Bipartite graph
-        X_pred: state prediction from prev frame
-        Z: current frame measurements
-        """
-
+    def get_edge_cost_matrix(self, object_graph, X_pred, Z, deleted_obj_ids):
         nZ, nX = len(Z), len(X_pred)
 
         # Create edge cost
@@ -35,15 +29,25 @@ class GNNSF:
                 
                 edge_cost[observer_id][object_id] = score
 
-        # print(edge_cost[:, :len(Z)])
+        return edge_cost
+
+    def greedy_associate(self, object_graph, X_pred, Z, deleted_obj_ids=None):
+        """
+        object_graph: Bipartite graph
+        X_pred: state prediction from prev frame
+        Z: current frame measurements
+        """        
+        edge_cost = self.get_edge_cost_matrix(object_graph, X_pred, Z, deleted_obj_ids)        
 
         assignment = [] # observer_id: object_id
         used_object_id = {}
         isolated_z = {}
         isolated_x = {}
-        
+        nZ, nX = len(Z), len(X_pred)
+
         # Greedy approach start
         # debug_assign = []
+        total_cost = 0.0
         for observer_id, costs in enumerate(edge_cost):
 
             # Detect isolated node in bipartite graph
@@ -78,6 +82,7 @@ class GNNSF:
                     assignment.append(max_obj_id)
                     # print("used", max_obj_id)
                     used_object_id[max_obj_id] = 1
+                    total_cost += max_cost
                     # debug_assign.append((max_obj_id, max_cost))
                 # print("temp debug", debug_assign)
 
@@ -87,8 +92,6 @@ class GNNSF:
             if all(v == -1. for v in edge_cost[:, i]) is True:
                 isolated_x[i] = True
 
-        # print("Debug assign", debug_assign)
-        # print("Deleted obj", deleted_obj_ids)
         # When we miss detect objects, we create dummy allignments
         # and zero-mask those allignments when calculating residuals
         if nX > nZ:
@@ -98,10 +101,11 @@ class GNNSF:
                     assignment.append(i)
                     isolated_x[i] = True
 
+        print("Greedy approach total cost: ", total_cost)
         return assignment, isolated_z, isolated_x
 
 
-    def hungarian_associate(self,):
+    def hungarian_associate(self, object_graph, X_pred, Z, deleted_obj_ids=None):
         pass
 
     def template_match(self, z, x):
