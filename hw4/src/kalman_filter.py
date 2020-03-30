@@ -13,7 +13,7 @@ def get_coord(x):
     return (int(x[0]), int(x[1]))
 
 class KalmanFilter:
-    def __init__(self, P=10, G_thresh=50): # cell:200, bat:50?
+    def __init__(self, P=10, G_thresh=120, std_dev=1, random_seed=30):
         """
         Kalman filter implementation
 
@@ -31,15 +31,17 @@ class KalmanFilter:
         self.K: Kalman gain (8x4)
         self.Z: Measurement (nx4) n: measured object count (t+1)
         
+        Cell: 10, 120, 1, 30, R=[10, 10]
+        Bat: 
         """
         self.G_thresh = G_thresh
-
+        np.random.seed(random_seed)
         # self.X = None
         self.P = P * np.eye(4)
         self.F = self.init_kinematic_matrix()
-        self.Q = np.random.normal(0.0, 0.01, (4, 4)) # std_dev = 0.01
+        self.Q = np.random.normal(0.0, std_dev, (4, 4)) # std_dev = 0.01
         self.H = np.bmat([np.eye(2), np.zeros((2, 2))])#np.zeros((4, 8))
-        self.R = np.diag([50, 50])
+        self.R = np.diag([10, 10])
         self.K = np.zeros((4, 2))
 
         print("Init F:")
@@ -122,9 +124,10 @@ class KalmanFilter:
         for i, z in enumerate(Z):
             Y = z - (X_pred @ self.H.T) # z:(1x4) broadcasted; Y:(nX x 4) (residual)
             confidence = np.diag(Y @ np.linalg.pinv(self.S) @ Y.T) # ellipsoidal confidence score
+            confidence = np.clip(confidence, -10.0, 10000.)
             conf_list.append("%.2f" % confidence.min())
             # print(confidence.min())
-            G = ((confidence < self.G_thresh) & (confidence > 0.0)).astype(np.float32) # G:(1 x nX)
+            G = (confidence < self.G_thresh).astype(np.float32) # G:(1 x nX)
             object_graph[i, :] = G
             # object_edge_cost[i, :] = G * confidence
         print("confidence:", ", ".join(conf_list))  
@@ -155,12 +158,15 @@ class KalmanFilter:
         Y = Z - (X_pred @ self.H.T)
         return np.array(Y)
 
-    def visualize_object_graph(self, frame, object_graph, X_pred, Z):
+    def visualize_object_graph(self, frame, object_graph, X_pred, Z, deleted_obj_ids={}):
 
         for z, linkages in zip(Z, object_graph):
+
             from_coord = (int(z[0]), int(z[1]))
             cv2.circle(frame, from_coord, 1, (0, 0, 255), -1)
             for i, linkage in enumerate(linkages):
+                if i in deleted_obj_ids:
+                    continue
                 if linkage > 0.9:
                     to_coord = (int(X_pred[i][0]), int(X_pred[i][1]))
                     cv2.circle(frame, to_coord, 1, (255, 0, 0), -1)
@@ -202,12 +208,16 @@ if __name__ == "__main__":
         object_graph = kf.gating(X_pred, P_pred, Z)
 
         frame_debug = frame.copy()
-        kf.visualize_object_graph(frame_debug, object_graph, X_pred, Z)
+        kf.visualize_object_graph(frame_debug, object_graph, X_pred, Z, deleted_obj_ids)
         cv2.imshow("object_graph", frame_debug)
 
         # Data Association phase: 
-        allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
-        print("Allignment", allignment)
+        # allignment, isolated_z, isolated_x = gnnsf.greedy_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        # print("Allignment", allignment)
+        # print("iso_X", len(isolated_x), isolated_x)
+        # print("iso_Z", len(isolated_z), isolated_z)
+        allignment, isolated_z, isolated_x = gnnsf.hungarian_associate(object_graph, X_pred, Z, deleted_obj_ids)
+        
 
         frame_obs = frame.copy()
         for obj_id, z in enumerate(Z):
@@ -246,15 +256,11 @@ if __name__ == "__main__":
         nZ, nX = len(Z), len(X_pred)
         print("nZ", nZ)
         print("nX", nX)
-        print("iso_X", len(isolated_x), isolated_x)
-        print("iso_Z", len(isolated_z), isolated_z)
         if nZ >= len(allignment):
             indexes = sorted(list(enumerate(allignment)), key=lambda x: x[1])
             indexes = [k for k, v in indexes]
             print(indexes)
-            print("Before reorg", Z[:])
             Z = Z[indexes, :]
-            print("After reorg", Z[:])
         else:
             # create dummy rows for Z (miss detections)
             Z = np.concatenate([Z, np.zeros((len(allignment)-nZ, Z.shape[1]))])
@@ -334,5 +340,3 @@ if __name__ == "__main__":
             # cv2.imshow("Measure_after", frame_obs_after)
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 break
-            # if cv2.waitKey(25) & 0xFF == ord('n'):
-            #     break
