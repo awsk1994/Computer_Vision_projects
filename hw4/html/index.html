@@ -102,39 +102,70 @@ The anticipated difficulties are implementing a reliable tracking algorithm and 
 <!--TODO(R) - Implement an alpha-beta filter or using a third-party Kalman filter library and get good tracking results for simple situations (e.g. when objects move separately without occluding each other)-->
 <p>For the tracking part, an alpha-beta tracker was implemented. The alpha beta observer is a simplified form of a linear state observer that assumes an object can be described by a model with 2 internal states. This system accounts for both process noise and measurement noise and is a lower order approximation.
 
-The two internal states represented by the model are position and velocity. This tracker has a prediction phase where it predicts the position and velocity for this time step using knowledge from the previous time step. In then calculates the residual ( measurement for this time step - prediction) and uses it to update the position and the velocity weighed by the parameters  α,β  respectively.
+The two internal states represented by the model are <b>position and velocity</b>. This tracker has a prediction phase where it predicts the position and velocity for this time step using knowledge from the previous time step. In then calculates the residual ( measurement for this time step - prediction) and uses it to update the position and the velocity weighed by the parameters  α,β  respectively.
 </p>
 <img src="./img/summary.png" class="img-face"/>
 <p>Figure 1 : Algorithm summary</p>
 
-<h4>Suboptimal Bipartite Matching Algorithm</h4>
-<!-- TODO(R) - Implement a greedy, suboptimal bipartite matching algorithm -->
-<p>>>Type Here<<</p>
-
-<h4>Implementation Details</h4>
-<!--TODO(A)
-    - Display the tracking results on top of the original images. Use different colors to show that you successfully maintain track identity. Draw lines to show the history of the flight trajectories
-    - Challenge 1: Proper handling of situations when objects touch and occlude each other
-    - Challenge 2: Proper handling of the beginning of new tracks and the termination of old tracks as the objects enter and leave the field of view
-How do you decide to begin new tracks and terminate old tracks as the objects enter and leave the field of view?
-What happens with your algorithm when objects touch and occlude each other, and how could you handle this so you do not break track?
-What happens when there are spurious detections that do not connect with other measurements in subsequent frames?
-
--->
 <p>For our implementation the equations used were,
 </p>
 <img src="./img/equations.png" class="img-face"/>
 <p>Figure 2 : Update equations</p>
-<p>The values for α,β itself are hyperparameters. Typically, lower values of  α,β  reflect more belief on the prediction ( when there is more measurement noise ) and higher values reflect more belief on the measurement ( less measurement noise). 
+<p>The values for α,β itself are hyperparameters. Typically, lower values of  α,β  reflect more belief on the prediction ( when there is more measurement noise ) and higher values reflect more belief on the measurement (less measurement noise).</p>
 
-All this was the alpha beta tracker for a single object. While extending to multiple objects the main problem was data association. Also all of the above parameters had to re-written as matrices and vectors. So all the update operations became vector operations. We implemented the greedy matching algorithm where older objects with longer tracking history were matched first. The gating used was a circular gate of 50 px. This was a trade off between recall and precision. 
+<p>All this was the alpha beta tracker for a single object. While extending to multiple objects, the main problem was data association. Also, all of the above parameters had to re-written as matrices and vectors. So all the update operations became vector operations.</p>
 
-The code was highly modularized and separate classes were created to perform the main tasks. The data_loader class was created to load all images, localization and segmentation maps. Different flags were provided to control what to load.
+<!-- <p>We implemented the greedy matching algorithm where older objects with longer tracking history were matched first. The gating used was a circular gate of 50 px. This was a trade off between recall and precision.</p>
+ -->
+<!-- <p>The code was highly modularized and separate classes were created to perform the main tasks. The data_loader class was created to load all images, localization and segmentation maps. Different flags were provided to control what to load.</p>
+ -->
+<!-- <p>The bat_tracking class performed the actual bat tracking.</p>
+ -->
 
-The bat_tracking class performed the actual bat tracking. The show_frame_wise methods ran the tracking. Different other helper functions were created to perform the other tasks. The create_color_hash function created the color hash to plot the tracks of the different bats. The draw_line function drew the bat tracks on the image. The update_velocity function performed the velocity updates. The update_coords function performed the position updates. The subtract function was used to calculate the residual vector. The association function performed the greedy data association.  This was the function that was tricky in our opinion. The distance function calculated the euclidean distance between two points and the get_x_pred function predicted the object coordinates of the next time step.
- 
+<ul>
+    <li>show_frame_wise methods(): ran the tracking. Different other helper functions were created to perform the other tasks.
+    </li>
+    <li>create_color_hash(): create the color hash to plot the tracks of the different bats.</li>
+    <li>draw_line(): drew the bat tracks on the image.</li>
+    <li>update_velocity(): performed the velocity updates.</li>
+    <li>update_coords(): performed the position updates</li>
+    <li>subtract(): calculate the residual vector</li>
+    <li>association(): performed the data association</li>
+    <li>distance(): calculated the euclidean distance between two points</li>
+    <li>get_x_pred(): predicted the object coordinates of the next time step.</li>
+</ul>
+
+<h4>Suboptimal Bipartite Matching Algorithm - Improving Greedy Algorithm</h4>
+<!-- TODO(R) - Implement a greedy, suboptimal bipartite matching algorithm -->
+<p>
+    To solve the bipartite matching problem, we initially implemented greedy algorithm to solve it. However, the results were very bad; mostly because it is 'greedy'. As a result, we modified the greedy algorithm to gain better results. I will explain our modifications below:
 </p>
 
+<p>
+    The traditional bipartite matching problem is - <b>how can we match 2 sets of data together?</b>; in this case, the group of localization points at each frame and the group of objects that are already recognized. Using the greedy algorithm, older objects wiht longer tracking history were matched first. The gating used was a circular gate of 50 px. This was a trade off between recall and precision.
+</p>
+
+<p>
+    The first main problem with the greedy algorithm was most bats (and cells) stay from the first frame onwards, and therefore, there were many objects that had the longest tracking history possible. As a result, the greedy algorithm was not effective in this bat (and cell) dataset. 
+</p>
+
+<p>
+    The second main problem is that greedy algorithm tries to match the localization points and objects in a 'greedy' manner. This is very not effective in a bipartite matching algorithm because there might be better matches along the way, but it not looked at yet (because it is greedy). 
+</p>
+
+<p>
+    To address the two problems above, we implemented a slightly different version of it. First, every localization point picks the closest (as in predicted position) object. As you can imagine, it's possible for 2 localization points to pick the same object. In that case, we enforce a 1 to 1 mapping by keeping only the pair of localization point and object with closest distance. The rest of the points are now turned into "zombies". Zombies are converted into new objects. 
+</p>
+
+<h4>Handle localization errors - Half Dead</h4>
+
+<p>
+    Basically, this part tries the fix a problem where the localization points are not very consistent. There might be a frame or two where the bat is there, but the localization point for it is not picked up. This is the case in the original localization dataset provided to us. We aim to fix this problem using a concept we term "Half Dead". 
+</p>
+
+<p>
+    Half Dead are unmatched objects by the end of the association method. They are 'half dead' because we don't want to discard them yet. We want to see if we can match them in the next n frames. n is a tunable variable; currently set to 2.
+</p>
 
 <h3>Segmentation/Localization</h3>
 <h4>Cell Dataset</h4>
@@ -155,8 +186,17 @@ The bat_tracking class performed the actual bat tracking. The show_frame_wise me
 <!-- TODO(A) 
 Display the results of your tracking algorithm on top of the original images. Use different colors to show that you successfully maintain track identity. Draw lines to show the history of the flight trajectories.
 Show your tracking results on some portion of the sequence. In addition to showing your tracking results on an easy portion of the data, identify a challenging situation where your tracker succeeds, and a challenging situation where your tracker fails.
-
 -->
+<!--TODO(A)
+    - Display the tracking results on top of the original images. Use different colors to show that you successfully maintain track identity. Draw lines to show the history of the flight trajectories
+    - Challenge 1: Proper handling of situations when objects touch and occlude each other
+    - Challenge 2: Proper handling of the beginning of new tracks and the termination of old tracks as the objects enter and leave the field of view
+How do you decide to begin new tracks and terminate old tracks as the objects enter and leave the field of view?
+What happens with your algorithm when objects touch and occlude each other, and how could you handle this so you do not break track?
+What happens when there are spurious detections that do not connect with other measurements in subsequent frames?
+-->
+
+
 <p>>>Type Here<<</p>
 
 <!-- <table>
@@ -176,6 +216,14 @@ Show your tracking results on some portion of the sequence. In addition to showi
 
 <hr>
 <h2> Discussion</h2>
+
+<h3>Improving Greedy Algorithm</h3>
+<p>As explained in the "Suboptimal Bipartite Matching Algorithm" section, we found the greedy algorithm to be ineffective for the bat and cell dataset. And as a result, we improved and implemented our own algorithm to solve the bipartite problem. The details are in the "Suboptimal Bipartite Matching Algorithm" section.</p>
+
+<h3>Handle localization problems</h3>
+<p>As explained in the "Handle localization errors" section above, the localization dataset might not be perfect and for a given object, the localization point of that object might be missing in some frames. We take in account of that in our algorithm. More details are explained in that section.</p>
+
+
 <!-- TODO(S) -->
 <p>>>Type Here<<</p>
 

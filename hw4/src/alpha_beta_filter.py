@@ -173,9 +173,6 @@ class DataLoader:
 
 # Associate object across frames
 class DataAssociation:
-
-
-
     @staticmethod
     def associate(x_pred, frame_measurements, v_pred, half_dead_h):
         # For each localization point, compute the closest x_pred point. Assign to hash.
