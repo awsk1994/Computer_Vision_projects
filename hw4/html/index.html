@@ -167,21 +167,80 @@ The two internal states represented by the model are <b>position and velocity</b
 </p>
 
 <h3>Segmentation/Localization</h3>
+<h4>Bat Dataset</h4>
+
+<p>For the bat dataset, we took advantage of the false color channel frames. We figured that the location prediction might be more accurate when we take account the heat information in addition to the RGB information</p>
+
+<p>To process false color channel images, we first convert the image base on ITU-R 601-2 luma transform. We then calculate for the average frame and perform subtraction to each frame when we iterate through the video directory.</p>
+
+<p>Next we perform thresholding, morphology, and flood filling operation to extract the segmentation and location of the detected binary objects. The intermidiate result for processing the first frame is shown as follow:</p>
+<!-- L = R * 299/1000 + G * 587/1000 + B * 114/1000 -->
+
+<table>
+    <tr>
+        <th> Original Frame </th>
+        <td><img src="./img/seg/original.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Average Frame </th>
+        <td><img src="./img/seg/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting Average Frame </th>
+        <td><img src="./img/seg/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> After Morphology & Thresholding </th>
+        <td><img src="./img/seg/frame_th.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Detected Objects </th>
+        <td><img src="./img/seg/frame_bbox.png" class="img-face"/></td>
+    </tr>
+</table>
+
 <h4>Cell Dataset</h4>
+
+<p>For the cell dataset, we basically perform the same operation as the bat dataset. The only difference we made here is to mask out the boundary of the environment, so we won't detect false object outside the petri dish.</p>
+
+<p>The intermediate result for processing the first frame is shown as follow:</p>
 <!-- TODO(S) 
  - For cell dataset, implement a segmentation or detection algorithm to locate each cell.
  - Bonus: 1) detecting the birth of a new cell. 2) detecting migrating cells (i.e cells with filopodia). 3) handling the spurious detections (false positives). 4)trying different kinematic models. 
  - What are the advantages and drawbacks of different kinematic models: Do you need to model the velocity of the objects, or is it sufficient to just consider the distances between the objects in subsequent frames?
 -->
-<p>>>Type Here<<</p>
+<table>
+    <tr>
+        <th> Original Frame </th>
+        <td><img src="./img/seg_cell/original.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Average Frame </th>
+        <td><img src="./img/seg_cell/avg_frame.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Subtracting Average Frame </th>
+        <td><img src="./img/seg_cell/frame_diff.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Mask Boundary </th>
+        <td><img src="./img/seg_cell/frame_mask.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> After Morphology & Thresholding </th>
+        <td><img src="./img/seg_cell/frame_th.png" class="img-face"/></td>
+    </tr>
+    <tr>
+        <th> Detected Objects </th>
+        <td><img src="./img/seg_cell/frame_bbox.png" class="img-face"/></td>
+    </tr>
+</table>
+
 
 <hr>
-<h2>Experiments</h2>
-<!-- TODO(S) -->
-<p>>>Type Here<<</p>
+<h2>Experiments & Baseline Results</h2>
 
-<hr>
-<h2>Results</h2>
+<p>As mentioned above, we implemented our own segmentation/detection algorithms and an alpha-beta filter + greedy(sub-optimal) tracker as our baseline. For simplicity, we use the bat dataset for example when demonstrating the details of our baseline implementation.</p>
 <!-- TODO(A) 
 Display the results of your tracking algorithm on top of the original images. Use different colors to show that you successfully maintain track identity. Draw lines to show the history of the flight trajectories.
 Show your tracking results on some portion of the sequence. In addition to showing your tracking results on an easy portion of the data, identify a challenging situation where your tracker succeeds, and a challenging situation where your tracker fails.
@@ -276,7 +335,20 @@ What happens when there are spurious detections that do not connect with other m
 </table> -->
 
 <hr>
-<h2>Discussion and Conclusion</h2>
+<h2>Discussion (& Bonus)</h2>
+
+<p>Our team is quite ambitious, after implementing the baseline methods, we figure that there are still much to improve, so we try to implement Kalman Filter & Hungarian method from scratch.</p>
+
+
+<h3>Kalman Filter</h3>
+
+<p></p>
+
+<h3>Hungarian Method</h3>
+
+<p></p>
+
+<h2>Conclusion</h2>
 <p>In this assignment, we:</p>
 <ul>
     <li>Implemented Alpha Beta Tracking</li>
