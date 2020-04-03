@@ -29,6 +29,9 @@ margin: 30px;
 hr{
 margin:20px 0px 20px 0px;
 }
+.occulsion-img{
+    width: 95%;
+}
 .img-face{
 width:50%
 }
@@ -146,25 +149,21 @@ The two internal states represented by the model are <b>position and velocity</b
 </p>
 
 <p>
-    The first main problem with the greedy algorithm was most bats (and cells) stay from the first frame onwards, and therefore, there were many objects that had the longest tracking history possible. As a result, the greedy algorithm was not effective in this bat (and cell) dataset. 
+    The main problem with the greedy algorithm was most bats (and cells) stay from the first frame onwards, and therefore, there were <b><u>many objects that had the longest tracking history possible</u></b>. As a result, the greedy algorithm was not effective in this bat (and cell) dataset because the greedy algorithm tries to match the localization points and objects in a 'greedy' manner. This is very not effective in a bipartite matching algorithm because there might be <b><u>better matches along the way, but it not looked at yet (because it is greedy)</u></b>. 
 </p>
 
 <p>
-    The second main problem is that greedy algorithm tries to match the localization points and objects in a 'greedy' manner. This is very not effective in a bipartite matching algorithm because there might be better matches along the way, but it not looked at yet (because it is greedy). 
-</p>
-
-<p>
-    To address the two problems above, we implemented a slightly different version of it. First, every localization point picks the closest (as in predicted position) object. As you can imagine, it's possible for 2 localization points to pick the same object. In that case, we enforce a 1 to 1 mapping by keeping only the pair of localization point and object with closest distance. The rest of the points are now turned into "zombies". Zombies are converted into new objects. 
+    To solve the problem mentioned above, we implemented a slightly different version of the greedy algorithm. First, <b><u>every localization point picks the closest (as in predicted position) object.</u></b> Note that the distance between two objects needs to be less than the <b><u>gating</u></b> value (manually defined) in order for the pick to be valid. As you can imagine, it's possible for 2 localization points to pick the same object. In that case, we enforce a <b><u>1 to 1 mapping</u></b> by keeping only the pair of localization point and object with closest distance. The rest of the points are now turned into "zombies". Then, we repeat the localization matching and 1 to 1 mapping step again so the zombies are mapped to localization points as much as possible. Lastly, <b><u>zombies are converted into new objects.</u></b>
 </p>
 
 <h4>Handle localization errors - Half Dead</h4>
 
 <p>
-    Basically, this part tries the fix a problem where the localization points are not very consistent. There might be a frame or two where the bat is there, but the localization point for it is not picked up. This is the case in the original localization dataset provided to us. We aim to fix this problem using a concept we term "Half Dead". 
+    This part tries the fix a problem the object is there but the <b><u>localization point might be missing in a few frames</u></b>. In the normal case, the localization of that object will be assigned a new object id because it is considered a new, thus different, object now. We do not want this behavior. We want the algorithm to be able to recognize that this supposedly new object is the same as the previous object. To fix this, our algorithm implements a concept we term <b><u>"Half Dead"</u></b>.
 </p>
 
 <p>
-    Half Dead are unmatched objects by the end of the association method. They are 'half dead' because we don't want to discard them yet. We want to see if we can match them in the next n frames. n is a tunable variable; currently set to 2.
+    Half Dead are unmatched objects by the end of the association method. They are 'half dead' because we don't want to discard them yet. We want to see if we can match them in the next n frames. n is a tunable variable; currently set to 5.
 </p>
 
 <h3>Segmentation/Localization</h3>
@@ -178,7 +177,7 @@ The two internal states represented by the model are <b>position and velocity</b
 
 <hr>
 <h2>Experiments</h2>
-<!-- TODO(All) -->
+<!-- TODO(S) -->
 <p>>>Type Here<<</p>
 
 <hr>
@@ -196,8 +195,70 @@ What happens with your algorithm when objects touch and occlude each other, and 
 What happens when there are spurious detections that do not connect with other measurements in subsequent frames?
 -->
 
+<h3>Handling Missing Localization Points</h3>
+<table>
+    <tr>
+        <td style="width:25%"><img class="occulsion-img" src="./img/handle_localization_error_1.png"/></td>
+        <td style="width:25%"><img class="occulsion-img" src="./img/handle_localization_error_2.png"/></td>
+        <td style="width:25%"><img class="occulsion-img" src="./img/handle_localization_error_3.png"/></td>
+    </tr>
+    <tr>
+        <td>frame n+1</td>
+        <td>frame n+2 (missing localization point)</td>
+        <td>frame n+3 (obj 7 is retrieved)</td>
+    </tr>
+</table>
+<caption>Table 1. Frames to show how the association algorithm takes in account of missing localization points in some frames.</caption>
 
-<p>>>Type Here<<</p>
+<p>As shown in Table 1, we see that in frame n+2, there is a localization error where the localization point for object 7 is not recognized. In order to handle this situation, we implemented the concept of "Half Dead" (explained earlier) to take in account of localization error in a given number of frames to handle situations like this.</p>
+
+<h3>Removing unused object track</h3>
+<table>
+    <tr>
+        <td style="width:33%"><img class="occulsion-img" src="./img/delete_removed_object_track_1.png"/></td>
+        <td style="width:33%"><img class="occulsion-img" src="./img/delete_removed_object_track_2.png"/></td>
+        <td style="width:33%"><img class="occulsion-img" src="./img/delete_removed_object_track_3.png"/></td>
+    </tr>
+    <tr>
+        <td>frame n+1</td>
+        <td>frame n+2 (missing localization point)</td>
+        <td>frame n+3 (obj 7 is retrieved)</td>
+    </tr>
+</table>
+<caption>Table 2. Frames to show that we remove unused object tracks. But we bring them back if they are recognized again in the future.</caption>
+
+<p>Table 2 shows the same frames as Table 1. The only difference is it now shows the track of object throughout the video. Again, we see in frame n+2 that there is a missing localization point for object 7, thus, the algorithm cannot find object 7. As a result, it is considered removed and we remove the track from the current frame. In frame n+3, the missing localization point comes back and we recognize it, and therefore, we implemented a way to bring its track back and display it.</p>
+
+<h3>Handling Objects touching and occluding</h3>
+<table>
+    <tr>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_1.png"/></td>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_2.png"/></td>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_3.png"/></td>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_4.png"/></td>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_5.png"/></td>
+        <td style="width:10%"><img class="occulsion-img" src="./img/handle_occlusion_6.png"/></td>
+    </tr>
+    <tr>
+        <td>frame n+1</td>
+        <td>frame n+2 (Start Occluding)</td>
+        <td>frame n+3</td>
+        <td>frame n+4</td>
+        <td>frame n+5 (obj 52 is retrieved)</td>
+        <td>frame n+6</td>
+    </tr>
+</table>
+<caption>Table 3. Frames to show how the association algorithm handles objects that touch and occlude.</caption>
+
+<p>As shown in Table 3, in frame n+1, we see two different objects, 65 and 52. In frames n+2 to n+4, we see that the localization algorithm interpreted the two bats occluding as 1 bat and only provided 1 localization point for it. In frame n+5, the localization point interprets two localization points for each of the two objects and we are able to interpret object 65 and 52 again using our implementation of "Half Dead".</p>
+
+<h3>Video Result of Bat Dataset</h3>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/6hlD6v7urvY" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/npJ8O_a0Akc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<h3>Video Result of Cell Dataset</h3>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/zV1Am-DvHdY" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 <!-- <table>
     <tr>
@@ -215,27 +276,15 @@ What happens when there are spurious detections that do not connect with other m
 </table> -->
 
 <hr>
-<h2> Discussion</h2>
-
-<h3>Improving Greedy Algorithm</h3>
-<p>As explained in the "Suboptimal Bipartite Matching Algorithm" section, we found the greedy algorithm to be ineffective for the bat and cell dataset. And as a result, we improved and implemented our own algorithm to solve the bipartite problem. The details are in the "Suboptimal Bipartite Matching Algorithm" section.</p>
-
-<h3>Handle localization problems</h3>
-<p>As explained in the "Handle localization errors" section above, the localization dataset might not be perfect and for a given object, the localization point of that object might be missing in some frames. We take in account of that in our algorithm. More details are explained in that section.</p>
-
-
-<!-- TODO(S) -->
-<p>>>Type Here<<</p>
-
-<hr>
-<h2> Conclusion</h2>
-<!-- TODO(S) -->
-<p>Future work would definitely include using kalman filters and the optimal matching (hungarian) algorithm. MHT could also be tried.</p>
-
-<hr>
-<h2> Credits and Bibliography </h2>
-<!-- TODO(S) -->
-<p>>>Type Here<<</p>
+<h2>Discussion and Conclusion</h2>
+<p>In this assignment, we:</p>
+<ul>
+    <li>Implemented Alpha Beta Tracking</li>
+    <li>Improved the greedy algorithm to solve the bipartite matching problem.</li>
+    <li>Implemented "Half Dead" to handle localization errors.</li>
+    <li>Implemented Kalman filter and Hungarian methods.</li>
+</ul>
+<p>We feel that we have achieved a much better algorithm than the initial minimum viable product that we initially created. However, the implementation is not perfect and it is worth taking the time to find better ways to perform segmentation, localization and tracking because these 3 topics have a broad range of applications and is very important.</p>
 
 </div>
 </body>
