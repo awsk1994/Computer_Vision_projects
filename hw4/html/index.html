@@ -342,11 +342,56 @@ What happens when there are spurious detections that do not connect with other m
 
 <h3>Kalman Filter</h3>
 
-<p></p>
+<h4>State Definition</h4>
+<p>Kalman Filters are very popular for tracking obstacles and predicting current and future positions. The main difference of Kalman Filter and Alpha-beta Filter (baseline) lies in that Kalman filter uses a more flexible dynamic model comparing the alpha-beta filter, also Kalman Filter introduces the covariance model for state instability and measurement noise. For simplicity, we define the object state as follow:</p>
+
+<img src="./img/discuss/state_def.png" class="img-face"/>
+
+<p>Where cx, cy is the coordinate for the object centroid, w and h are the width and height of the object detection bounding box respectively. Note that we also create placeholder to model the velocity of cx, cy, w, h. We denote them as vx, vy, vw, vh.</p>
+
+<h4>Prediction/Update</h4>
+<p>Here we won't introduce the detail of the formula since it's covered during IVC course. We used the `numpy` to implement all the matrix operation in Kalman Filter: </p>
+
+<img src="./img/discuss/predict.png" class="img-face"/>
+
+<img src="./img/discuss/update.png" class="img-face"/>
+
+<p>Here we apply Kalman Filter on the cell dataset. </p>
+
+<h3>Kalman Filter Estimation</h3>
+<table>
+    <tr>
+        <td style="width:33%"><img class="occulsion-img" src="./img/discuss/track1.png"/></td>
+        <td style="width:33%"><img class="occulsion-img" src="./img/discuss/track2.png"/></td>
+        <td style="width:33%"><img class="occulsion-img" src="./img/discuss/track3.png"/></td>
+    </tr>
+    <tr>
+        <td>frame n+1</td>
+        <td>frame n+2</td>
+        <td>frame n+3</td>
+    </tr>
+</table>
 
 <h3>Hungarian Method</h3>
 
-<p></p>
+<p>For applying hungarian method we implemented the gating method using thresholded chi-square confidence, and further contruct object graph using a subset of detected object that satisfy the confidence threshold:</p>
+
+<h3>Gating Method & Object Graph</h3>
+<table>
+    <tr>
+        <td style="width:25%"><img class="occulsion-img" src="./img/discuss/graph1.png"/></td>
+        <td style="width:25%"><img class="occulsion-img" src="./img/discuss/graph2.png"/></td>
+        <td style="width:25%"><img class="occulsion-img" src="./img/discuss/graph3.png"/></td>
+    </tr>
+    <tr>
+        <td>frame n+1</td>
+        <td>frame n+2</td>
+        <td>frame n+3</td>
+    </tr>
+</table>
+
+<p>It's hard to visualize the hungarian method, so we will demonstrate how it work during demo, but not in the report. What is important is that it has a time complexity of O(n^3).</p>
+
 
 <h2>Conclusion</h2>
 <p>In this assignment, we:</p>
