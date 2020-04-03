@@ -1,3 +1,5 @@
+Author: Alex Wong, Rahul Suresh, Shawn Lin
+
 # Introduction
 Alpha-Beta (Kalman Filter) to detect/track bats
 
@@ -11,7 +13,10 @@ Need to download BatImages, Localization and Segmentation data from Google Drive
 And, install all the necessary libraries (shown on first few lines of code.py)
 
 # Run code:
- - python3 code.py
+ - python3 <select a py file below>.py
  - To go to next frame, hit 'q'.
 
-Author: Alex Wong, Rahul Suresh, Shawn Lin
+# Files
+bat_data_loader.py: run alpha beta filter on bat dataset
+cell_data_loader.py: run alpha beta filter on cell dataset
+alpha_beta_filter.py: run alpha beta filter on original dataset localization file provided.
