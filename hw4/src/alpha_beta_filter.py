@@ -10,14 +10,150 @@ import numpy as np
 import glob
 import random
 import os
-
 import time
+import re
+from PIL import Image
+
+# from bat_data_loader import BatDataLoader
 
 from state import State
 
+SHOW_WARNING = False
+
+# Helper functions
+def get_frame_id(fn):
+    return int(re.sub(r".*?frame(\d+)\.ppm", "\\1", fn))
+
+def get_average_video_frame(video_dir, SCALE_FACTOR, false_color=False):
+
+    frames = []
+    for _, _, file_list in os.walk(video_dir):
+        file_list = sorted(file_list, key=lambda x: get_frame_id(x))
+
+        for fn in file_list:
+            frame = cv2.imread("%s/%s" % (video_dir, fn), cv2.IMREAD_COLOR)
+            new_shape = (frame.shape[1]//SCALE_FACTOR, frame.shape[0]//SCALE_FACTOR)
+            frame = cv2.resize(frame, new_shape)
+            if false_color:
+                frame = np.array(Image.fromarray(frame).convert('L'))
+            else:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frames.append(frame)
+        print("shape", np.array(frames).shape)
+        avg_frame = np.average(np.array(frames).astype(np.uint32), axis=0).astype(np.uint8)
+        print(np.max(avg_frame), np.min(avg_frame))
+        print("avg shape", avg_frame.shape)
+        return avg_frame
+
+def video_frame_iterator(video_dir, debug, SCALE_FACTOR):
+    for _, _, file_list in os.walk(video_dir):
+        file_list = sorted(file_list, key=lambda x: get_frame_id(x))
+
+        if debug:
+            while True:
+                frame = cv2.imread("%s/%s" % (video_dir, file_list[0]), cv2.IMREAD_COLOR)
+                new_shape = (frame.shape[1]//SCALE_FACTOR, frame.shape[0]//SCALE_FACTOR)
+                frame = cv2.resize(frame, new_shape)
+                yield (0, frame)
+        else:
+            for fn in file_list:
+                frame = cv2.imread("%s/%s" % (video_dir, fn), cv2.IMREAD_COLOR)
+                new_shape = (frame.shape[1]//SCALE_FACTOR, frame.shape[0]//SCALE_FACTOR)
+                frame = cv2.resize(frame, new_shape)
+                yield (get_frame_id(fn), frame)
+
+
+class BatDataLoader:
+    def __init__(self, bat_data_dir, scale_factor=2, DEBUG=False):
+        """
+        TODO: image file path
+              SCALE FACTOR
+              and other hyper params?
+        """
+        self.localization = [] # TODO: create class to hold the position tuples?
+        self.images = [] # this is wasting a lot of mem (TODO: traverse only when needed?)
+        self.segmentation = [] # this is not used in further parts
+        self.process(bat_data_dir, scale_factor, DEBUG)
+
+    def process(self, bat_data_dir, scale_factor, DEBUG):
+        
+        false_color_path = bat_data_dir+"FalseColor/"
+        grey_path = bat_data_dir+"Gray/"
+        avg_frame = get_average_video_frame(false_color_path, scale_factor, false_color=True)
+
+        for it1, it2 in zip(video_frame_iterator(false_color_path, False, scale_factor),
+                            video_frame_iterator(grey_path, False, scale_factor)):
+
+            frame_id, frame = it1
+            _, frame_grey = it2
+
+            print(frame_id)
+            # Remove background bias
+            frame_gs = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frame_diff = cv2.absdiff(frame_gs, avg_frame)
+            # frame_diff = cv2.cvtColor(frame_diff, cv2.COLOR_BGR2GRAY)
+            
+            # Remove boundary noise; Adding mask
+            roi_mask = np.ones((frame_diff.shape[0], frame_diff.shape[1]))
+            roi_mask = roi_mask.astype(np.int8)
+            roi_mask[480:, :] = 0
+            roi_mask[445:, :30] = 0
+            roi_mask[445:, 480:] = 0
+            frame_roi = cv2.bitwise_and(frame_diff, frame_diff, mask=roi_mask)
+            # cv2.imshow("mask", frame_roi)
+
+
+            # Thresholding
+            # frame_th = cv2.adaptiveThreshold(frame_diff, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 33, 5)
+            # _, frame_th = cv2.threshold(frame_roi, 40, 255, cv2.THRESH_BINARY)
+            frame_blur = cv2.GaussianBlur(frame_roi, (5, 5), 0)
+            _, frame_th = cv2.threshold(frame_blur, 30, 255, cv2.THRESH_BINARY)
+            
+            frame_morph = cv2.morphologyEx(frame_th, cv2.MORPH_CLOSE, (15, 15), iterations=2)
+            frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_OPEN, (15, 15), iterations=2)
+            # frame_morph = cv2.morphologyEx(frame_morph, cv2.MORPH_CLOSE, (7, 7), iterations=1)
+
+            frame_blur = cv2.GaussianBlur(frame_morph, (7, 7), 0)
+            _, frame_blur = cv2.threshold(frame_blur, 25, 255, cv2.THRESH_BINARY)
+
+
+            # Flood filling
+            num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(frame_blur, 4, cv2.CV_32S)
+            
+            n_obj = 0
+            cur_frame_locations = []
+            for stat, cent in zip(stats[1:], centroids[1:]):
+                x, y, w, h = stat[:4]
+                # if stat[4] < 2:
+                    # continue
+                color = (0, 255, 0)
+                n_obj += 1
+
+                # Insert object centroid; TODO: data structure..
+                state = State()
+                state.set_centroid(int(cent[0]), int(cent[1]))
+                state.set_bbox(w, h)
+                cur_frame_locations.append(state)
+
+                if DEBUG:
+                    cv2.rectangle(frame_grey, (x, y), (x+w, y+h), color, 1)
+                    cv2.putText(frame_grey, "%.3f" % (stat[4]), (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color=color)
+
+            if DEBUG:
+                cv2.putText(frame_grey, "Detected %i bats" % (n_obj), (6, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color=(255, 0, 0)) 
+                cv2.imshow("diff_vid", frame_diff)
+                cv2.imshow("Lum_video", frame_blur)
+                cv2.imshow("Orig_video", frame_grey)
+                if cv2.waitKey(25) & 0xFF == ord('q'):
+                    exit(0)
+                time.sleep(1./10)
+            self.images.append(frame_grey)
+            self.localization.append(cur_frame_locations)
+
+
 # Half Dead Class
 class HalfDead:
-    def __init__(self, coord, livesLeft=2):
+    def __init__(self, coord, livesLeft=5):
         self.coord = coord
         self.livesLeft = livesLeft
 
@@ -176,31 +312,92 @@ class DataAssociation:
     @staticmethod
     def associate(x_pred, frame_measurements, v_pred, half_dead_h):
         # For each localization point, compute the closest x_pred point. Assign to hash.
-        x_pred_locs_hash =  DataAssociation.matching(frame_measurements, x_pred, half_dead_h)
+        half_dead_arr = [[hd_item.coord, hd_id] for (hd_id,hd_item) in half_dead_h.items()]
+        frame_plus_head_dead_arr = x_pred + half_dead_arr
+        x_pred_locs_hash =  DataAssociation.matching(frame_measurements, frame_plus_head_dead_arr)
 
         # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
         cur_frame_x_pred_labels, new_locs, zombie_loc_ids = DataAssociation.restrict_to_1_to_1_mapping(x_pred_locs_hash, half_dead_h, frame_measurements)
+
+        # print("b1 | cur_frame_x_pred_labels")
+        # print(cur_frame_x_pred_labels)
+        # print("b2 | new_locs")
+        # print(new_locs)
+        # print("b3 | zombie_loc_ids")
+        # print(zombie_loc_ids)
+
+
+
+
+        # ======== NEW (unstable) ==============================================================================
+
+
+        # print("c1a | zombie_loc_ids: ", zombie_loc_ids)
+
+        used_ids, not_used_ids_h = DataAssociation.calc_unused_ids(frame_plus_head_dead_arr, cur_frame_x_pred_labels, new_locs)
+        
+        # print("c1b | not_used_ids_h:", not_used_ids_h.keys())
+
+        remaining_objects = []
+        for frame_plus_head_dead in frame_plus_head_dead_arr:
+            if frame_plus_head_dead[1] in not_used_ids_h.keys():
+                remaining_objects.append(frame_plus_head_dead)
+
+        zombie2 = []
+        for zombie_loc_id in zombie_loc_ids:
+            zombie2.append(frame_measurements[zombie_loc_id])
+
+        x_pred_locs_hash =  DataAssociation.matching(zombie2, remaining_objects, gating_dist = 100)
+        # print("c1c | x_pred_locs_hash")
+        # print(x_pred_locs_hash)
+
+        # Shorten Hash so each each x_pred only has 1 locs. The rest are zombies. 
+        cur_frame_x_pred_labels2, new_locs2, zombie_loc_ids2 = DataAssociation.restrict_to_1_to_1_mapping2(x_pred_locs_hash, half_dead_h, zombie2, zombie_loc_ids)
+
+        print("c1 | new_locs2")
+        print(new_locs2)
+
+        new_locs += new_locs2
+        cur_frame_x_pred_labels += cur_frame_x_pred_labels2
+        zombie_loc_ids = zombie_loc_ids2
+
+        # print("c2 | zombie_loc_ids")
+        # print(zombie_loc_ids)
+
+        # print("c3 | frame_measurements")
+        # print([fm.get_centroid() for fm in frame_measurements])
+
+
+        # ======== NEW (unstable) ==============================================================================
+
+
+
+
 
         # convert zombies into new bojects
         new_object_id = DataAssociation.get_new_object_id(half_dead_h, x_pred)
         new_locs = DataAssociation.convert_zombie_into_new_object(new_locs, zombie_loc_ids, frame_measurements, new_object_id)
 
+        # print("c5 | new_locs size = {}".format(len(new_locs)))
+ 
         # Update Half Dead Hash
         used_ids, not_used_ids_h = DataAssociation.calc_unused_ids(x_pred, cur_frame_x_pred_labels, new_locs)
         half_dead_h = DataAssociation.update_half_dead_hash(half_dead_h, used_ids, not_used_ids_h)
 
-        return cur_frame_x_pred_labels, new_locs, not_used_ids_h, half_dead_h
+        return cur_frame_x_pred_labels, new_locs, not_used_ids_h, half_dead_h, used_ids
 
     @staticmethod
-    def matching(frame_measurements, x_pred, half_dead_h):
-        half_dead_arr = [[hd_item.coord, hd_id] for (hd_id,hd_item) in half_dead_h.items()]
+    def matching(frame_measurements, x_pred, gating_dist = 100):
+        # print("d1 | frame_measurements")
+        # print([fm.get_centroid() for fm in frame_measurements])
+
         x_pred_locs_hash = {} # {'i_key': [(j_key, dist),...]}, i_key = x_pred_key, j_keys = localization point
         for j, meas in enumerate(frame_measurements):       # Start with localization point
             min_dist = float('inf')
             closest_x_pred_label = None
 
             # Get closets x_pred
-            for _, x_pred_data in enumerate(x_pred + half_dead_arr):
+            for _, x_pred_data in enumerate(x_pred):
                 x_pred_coord, x_pred_label = x_pred_data
 
                 meas_coord = [meas.get_centroid()[0], meas.get_centroid()[1]]
@@ -210,11 +407,13 @@ class DataAssociation:
                     min_dist = dist
                     closest_x_pred_label = x_pred_label
 
-            # Add to x_pred_locs_hash
-            if closest_x_pred_label in x_pred_locs_hash.keys():
-                x_pred_locs_hash[closest_x_pred_label].append((j, min_dist, meas.get_centroid()))
-            else:
-                x_pred_locs_hash[closest_x_pred_label] = [(j, min_dist, meas.get_centroid())]
+            if min_dist < gating_dist:
+                # Add to x_pred_locs_hash
+                if closest_x_pred_label in x_pred_locs_hash.keys():
+                    x_pred_locs_hash[closest_x_pred_label].append((j, min_dist, meas.get_centroid()))
+                else:
+                    x_pred_locs_hash[closest_x_pred_label] = [(j, min_dist, meas.get_centroid())]
+
         return x_pred_locs_hash
 
     @staticmethod
@@ -222,11 +421,13 @@ class DataAssociation:
         cur_frame_x_pred_labels = []
         new_locs = []
         zombie_loc_ids = []
+        seen_loc_ids = []
         for x_pred_key in x_pred_locs_hash.keys():
             loc_datas = x_pred_locs_hash[x_pred_key]
             if len(loc_datas) == 1:         # this x_pred only has 1 loc. Add to cur_frame_x_pred_labels
                 loc_idx = loc_datas[0][0]
                 loc_item = [frame_measurements[loc_idx].get_centroid(), x_pred_key]
+                seen_loc_ids.append(loc_idx)
                 if x_pred_key in half_dead_h.keys():
                     new_locs.append(loc_item)
                 else:
@@ -242,11 +443,69 @@ class DataAssociation:
                         min_idx = loc_idx
 
                 loc_item = [frame_measurements[min_idx].get_centroid(), x_pred_key]
+                seen_loc_ids.append(min_idx)
+
                 if x_pred_key in half_dead_h.keys():
                     new_locs.append(loc_item)
                 else:
                     cur_frame_x_pred_labels.append(loc_item)     # Update cur_frame_x_pred_labels
                 zombie_loc_ids += utils.remove_from_array(loc_idxs, min_idx) # Zombie locs
+
+                seen_loc_ids += zombie_loc_ids
+
+        not_seen_loc_ids = []
+        for fm_idx in range(len(frame_measurements)):
+            if fm_idx not in seen_loc_ids:
+                not_seen_loc_ids.append(fm_idx)
+
+        zombie_loc_ids += not_seen_loc_ids
+
+        return cur_frame_x_pred_labels, new_locs, zombie_loc_ids
+
+    @staticmethod
+    def restrict_to_1_to_1_mapping2(x_pred_locs_hash, half_dead_h, zombie2, zombie_loc_ids_orig):
+        cur_frame_x_pred_labels = []
+        new_locs = []
+        zombie_loc_ids = []
+        seen_loc_ids = []
+        for x_pred_key in x_pred_locs_hash.keys():
+            loc_datas = x_pred_locs_hash[x_pred_key]
+            if len(loc_datas) == 1:         # this x_pred only has 1 loc. Add to cur_frame_x_pred_labels
+                loc_idx = loc_datas[0][0]
+                loc_item = [zombie2[loc_idx].get_centroid(), x_pred_key]
+                seen_loc_ids.append(loc_idx)
+                if x_pred_key in half_dead_h.keys():
+                    new_locs.append(loc_item)
+                else:
+                    cur_frame_x_pred_labels.append(loc_item)
+            else:
+                loc_idxs = [loc_data[0] for loc_data in loc_datas]
+                min_idx = None
+                min_dist = float('inf')
+                for loc_data in loc_datas:
+                    loc_idx, loc_dist, _ = loc_data
+                    if loc_dist < min_dist:
+                        min_dist = loc_dist
+                        min_idx = loc_idx
+
+                loc_item = [zombie2[min_idx].get_centroid(), x_pred_key]
+                seen_loc_ids.append(min_idx)
+
+                if x_pred_key in half_dead_h.keys():
+                    new_locs.append(loc_item)
+                else:
+                    cur_frame_x_pred_labels.append(loc_item)     # Update cur_frame_x_pred_labels
+                zombie_loc_ids += utils.remove_from_array(loc_idxs, min_idx) # Zombie locs
+
+                seen_loc_ids += zombie_loc_ids
+
+        not_seen_loc_ids = []
+        for zombie_loc_id in zombie_loc_ids_orig:   
+            if zombie_loc_id not in seen_loc_ids:
+                not_seen_loc_ids.append(zombie_loc_id)
+
+        zombie_loc_ids += not_seen_loc_ids
+
         return cur_frame_x_pred_labels, new_locs, zombie_loc_ids
 
     @staticmethod
@@ -339,8 +598,8 @@ class AlphaBetaFilter:
             if found_id == False:
                 x_pred_item = [x_prev_coord, x_prev_id]
                 x_pred.append(x_pred_item)
-                print("id not found")
-
+                if SHOW_WARNING:
+                    print("get_x_pred | id({}) not found".format(x_prev_id))
 
         return x_pred
 
@@ -359,23 +618,26 @@ class AlphaBetaFilter:
         res : list
             difference between measurements and predictions
     """
-    def subtract(self, frame_measurements, x_preds):
+    def subtract(self, cur_measurements, x_preds):
         # perform object wise subtraction
         res = []
         # the below assumes element wise alignment, this may or may not hold
         for _, x_pred in enumerate(x_preds):
             x_pred_coord, x_pred_label = x_pred
+            found_x_pred = False
+            for _, cur_measurement in enumerate(cur_measurements):
+                cm_coord, cm_label = cur_measurement
 
-            for _, frame_measurement in enumerate(frame_measurements):
-                fm_coord, fm_label = frame_measurement
-
-                if x_pred_label == fm_label:                    # TODO: Optimize
-                    x_residual = fm_coord[0] - x_pred_coord[0]
-                    y_residual = fm_coord[1] - x_pred_coord[1]
+                if x_pred_label == cm_label:                    # TODO: Optimize
+                    x_residual = cm_coord[0] - x_pred_coord[0]
+                    y_residual = cm_coord[1] - x_pred_coord[1]
                     residual = (x_residual, y_residual)
-                    res.append([residual, fm_label])
+                    res.append([residual, cm_label])
                     found_x_pred = True
                     break
+            if found_x_pred == False:
+                if SHOW_WARNING:
+                    print("subtract | x_pred({}) not found".format(x_pred_label))
 
         return res
 
@@ -386,11 +648,11 @@ class AlphaBetaFilter:
 
         #     for _, frame_measurement in enumerate(frame_measurements):
         #         # print("frame_measurement", frame_measurement)
-        #         fm_coord, fm_label = frame_measurement
+        #         cm_coord, cm_label = frame_measurement
 
-        #         if x_pred_label == fm_label:                    # TODO: Optimize
-        #             x_residual = fm_coord[0] - x_pred_coord[0]
-        #             y_residual = fm_coord[1] - x_pred_coord[1]
+        #         if x_pred_label == cm_label:                    # TODO: Optimize
+        #             x_residual = cm_coord[0] - x_pred_coord[0]
+        #             y_residual = cm_coord[1] - x_pred_coord[1]
         #             residual = (x_residual, y_residual)
         #             res.append([residual, x_pred_label])
         # return res
@@ -533,11 +795,13 @@ class AlphaBetaFilter:
 
 
             # Step 2: Associate object across prev frame and current frame.
-            cur_measurements, new_locs, not_used_ids_h, half_dead_h = self.data_association_fn(x_pred, self.data.localization[i], v_pred, half_dead_h)
+            cur_measurements, new_locs, not_used_ids_h, half_dead_h, used_ids = self.data_association_fn(x_pred, self.data.localization[i], v_pred, half_dead_h)
             if self.DEBUG:
                 print('frame', i, "| step 2 | cur_measurements: ", len(cur_measurements))
                 print('frame', i, "| step 2 | new_locs: ", len(new_locs))
                 print('frame', i, "| step 2 | half_dead_h: ", len(half_dead_h))
+
+                # print([(k,v.coord) for k,v in half_dead_h.items()])
                 # time2 = utils.current_milli_time()
                 # print('frame', i, '| Step 2 | time taken:', time2 - time1)
                 print('frame', i, '| Step 2 | new_locs', new_locs)
@@ -553,7 +817,6 @@ class AlphaBetaFilter:
             #     time3 = utils.current_milli_time()
             #     print('frame', i, '| Step 3 | time taken:', time3 - time2)
 
-
             # Step 4
             v_prev = v_est
             x_prev = x_est           
@@ -562,19 +825,16 @@ class AlphaBetaFilter:
             x_future = self.get_x_pred(x_prev, v_prev)
             x_pos_compiled.append(x_est)
 
-
-            # Step 4.5: remove unused from x_pos_compiled
-            x_pos_compiled2 = []
+            # Step 4.5: generate x pos for this frame (cumulative of previous)
+            x_pos_curr_frame = []
             for x_pos_compiled_per_frame in x_pos_compiled:
                 keep_x_pos_compiled_per_frame = []
                 for (x_pos_coord, x_pos_id) in x_pos_compiled_per_frame:                    
-                    if x_pos_id not in not_used_ids_h.keys():
+                    if x_pos_id in used_ids:
                         keep_x_pos_compiled_per_frame.append([x_pos_coord, x_pos_id])
-                x_pos_compiled2.append(keep_x_pos_compiled_per_frame)
-            x_pos_compiled = x_pos_compiled2
-            if self.DEBUG:
-                print('frame', i, ' | step 4 | x_pos_compiled: ',x_pos_compiled)
-
+                x_pos_curr_frame.append(keep_x_pos_compiled_per_frame)
+            # if self.DEBUG:
+            #     print('frame', i, ' | step 4 | x_pos_curr_frame: ',x_pos_curr_frame)
 
             # Step 5
             if self.DEBUG:
@@ -588,7 +848,7 @@ class AlphaBetaFilter:
             velocity_with_img_frame = utils.draw_line(x_orig_prev, x_pred_copy, cur_measurements, x_future, color_hash, velocity_with_img_frame)
 
             x_pos_compiled_frame = frame.copy()
-            x_pos_compiled_frame = utils.draw(x_pos_compiled, color_hash, x_pos_compiled_frame)
+            x_pos_compiled_frame = utils.draw(x_pos_curr_frame, color_hash, x_pos_compiled_frame)
 
             localization_frame = frame.copy()
             localization_frame = utils.draw([cur_measurements], color_hash, localization_frame)
@@ -596,26 +856,28 @@ class AlphaBetaFilter:
             # Step 6: Set x_orig_prev
             x_orig_prev = cur_measurements
 
-            while (True):
-                cv2.imshow("velocity", velocity_frame)
-                cv2.resizeWindow('velocity', self.window_size[0], self.window_size[1])
+            if i >= 0:
+                while (True):
+                    cv2.imshow("velocity", velocity_frame)
+                    cv2.resizeWindow('velocity', self.window_size[0], self.window_size[1])
 
-                cv2.imshow("velocity_with_img", velocity_with_img_frame)
-                cv2.resizeWindow('velocity_with_img', self.window_size[0], self.window_size[1])
+                    cv2.imshow("velocity_with_img", velocity_with_img_frame)
+                    cv2.resizeWindow('velocity_with_img', self.window_size[0], self.window_size[1])
 
-                cv2.imshow("x_pos_compiled",x_pos_compiled_frame)
-                cv2.resizeWindow('x_pos_compiled', self.window_size[0], self.window_size[1])
+                    cv2.imshow("x_pos_compiled",x_pos_compiled_frame)
+                    cv2.resizeWindow('x_pos_compiled', self.window_size[0], self.window_size[1])
 
-                cv2.imshow("localization", localization_frame)
-                cv2.resizeWindow('localization', self.window_size[0], self.window_size[1])
+                    cv2.imshow("localization", localization_frame)
+                    cv2.resizeWindow('localization', self.window_size[0], self.window_size[1])
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):   # Press q to go to next frame
-                    break
+                    if cv2.waitKey(1) & 0xFF == ord('q'):   # Press q to go to next frame
+                        break
         cv2.destroyAllWindows()
 
 
 def main():
-    bat_data = DataLoader(image_path='../data/bats/CS585-BatImages/Gray', localization_path='../data/bats/Localization', segmentation_path=None) #segmentation_path='./Segmentation'
+    # bat_data = DataLoader(image_path='../data/bats/CS585-BatImages/Gray', localization_path='../data/bats/Localization', segmentation_path=None) #segmentation_path='./Segmentation'
+    bat_data = DataLoader(image_path='../data/bats/CS585-BatImages/Gray', localization_path='../data/bats/Localization3', segmentation_path=None) #segmentation_path='./Segmentation'
     bat_tracker = AlphaBetaFilter(bat_data, data_association_fn = DataAssociation.associate, window_size=(600,600), DEBUG=True)
     bat_tracker.run()
 
