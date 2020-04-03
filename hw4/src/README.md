@@ -17,6 +17,6 @@ And, install all the necessary libraries (shown on first few lines of code.py)
  - To go to next frame, hit 'q'.
 
 # Files
-bat_data_loader.py: run alpha beta filter on bat dataset
-cell_data_loader.py: run alpha beta filter on cell dataset
-alpha_beta_filter.py: run alpha beta filter on original dataset localization file provided.
+ - bat_data_loader.py: run alpha beta filter on bat dataset
+ - cell_data_loader.py: run alpha beta filter on cell dataset
+ - alpha_beta_filter.py: run alpha beta filter on original dataset localization file provided.
