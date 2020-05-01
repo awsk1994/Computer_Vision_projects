@@ -2,14 +2,14 @@
  - train_and_predict_orig_v2.py: Train Model
  - predict_v2.ipynb: Run Evaluation (get accuracy)
  - predict_get_heatmap.ipynb: Generate heatmap from model
- - preprocess_data.ipynb: 
+ - preprocess_data.ipynb: Preprocess dataset to generated desired input images.
 
 # Generating Training Data
 1. Download original dataset from:
  - KITTI: (TODO)
  - AiSkyEye: Go to https://github.com/VisDrone/VisDrone-Dataset and download "Object Detection in Videos" dataset (VisDrone2019-VID)
 
-2. Open preprocess_data.ipynb
+2. Open preprocess_data.ipynb (Depending on dataset)
 
 3. Modify variables below to your preference and make sure they exist:
  - output_snippet_dir
@@ -19,6 +19,8 @@
  - input_aiskyeye_label_path_training
  - input_aiskyeye_label_path_validation
  - input_aiskyeye_label_path_testing
+
+4. Run preprocess_data.ipynb
 
 # How to Run
 
